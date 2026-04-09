@@ -252,7 +252,20 @@ async function handleEditorSave() {
   btn.textContent = 'Saving…';
 
   try {
-    const saved = await saveCharacter(data);
+    let saved = await saveCharacter(data);
+
+    // If a new image was dropped into the AI panel, upload it as the primary image
+    // (only on create, or on edit if no images exist yet)
+    if (aiImageFile && (editorMode === 'create' || !saved.images || saved.images.length === 0)) {
+      btn.textContent = 'Uploading image…';
+      const formData = new FormData();
+      formData.append('image', aiImageFile);
+      const imgRes = await fetch(`/api/characters/${saved.id}/images`, {
+        method: 'POST', body: formData,
+      });
+      if (imgRes.ok) saved = await imgRes.json();
+    }
+
     if (editorMode === 'edit') {
       characters = characters.map(c => c.id === saved.id ? saved : c);
     } else {

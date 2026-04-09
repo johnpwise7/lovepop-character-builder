@@ -303,7 +303,7 @@ html, body {
 
 .editor-layout {
   display: grid;
-  grid-template-columns: 340px 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 20px;
   align-items: start;
 }
@@ -312,7 +312,6 @@ html, body {
 .ai-panel {
   background: white; border: 1px solid var(--sand-mid);
   border-radius: var(--radius-lg); overflow: hidden;
-  position: sticky; top: 72px;
 }
 .ai-panel-header {
   background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
@@ -396,7 +395,6 @@ html, body {
 .btn-apply-all:hover { text-decoration: underline; }
 
 #ai-result-cards {
-  max-height: 420px; overflow-y: auto;
   padding: 0 14px 14px;
   display: flex; flex-direction: column; gap: 8px;
 }

@@ -8,8 +8,11 @@ const db = require('./database');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Uploads dir
-const UPLOADS_DIR = path.join(__dirname, 'public', 'uploads');
+// Uploads dir — use the same persistent volume as the DB when available
+const DATA_DIR = process.env.DB_PATH ? path.dirname(process.env.DB_PATH) : null;
+const UPLOADS_DIR = DATA_DIR
+  ? path.join(DATA_DIR, 'uploads')
+  : path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const diskStorage = multer.diskStorage({
@@ -23,6 +26,8 @@ const uploadDisk = multer({ storage: diskStorage, limits: { fileSize: 10 * 1024 
 const uploadMem  = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 app.use(express.json({ limit: '10mb' }));
+// Serve uploads from the persistent volume at /uploads/ (takes priority over public/uploads/)
+app.use('/uploads', express.static(UPLOADS_DIR));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ── Characters API ────────────────────────────────────────────
@@ -51,6 +56,14 @@ app.post('/api/characters/:id/images', uploadDisk.single('image'), (req, res) =>
   const updated = db.updateCharacter(req.params.id, { images: [...char.images, `/uploads/${req.file.filename}`] });
   res.json(updated);
 });
+app.delete('/api/characters/:id/images/:index', (req, res) => {
+  const char = db.getCharacter(req.params.id);
+  if (!char) return res.status(404).json({ error: 'Not found' });
+  const idx = parseInt(req.params.index, 10);
+  if (isNaN(idx) || idx < 0 || idx >= char.images.length) return res.status(400).json({ error: 'Invalid index' });
+  const newImages = char.images.filter((_, i) => i !== idx);
+  res.json(db.updateCharacter(req.params.id, { images: newImages }));
+});
 
 // ── Lands API ─────────────────────────────────────────────────
 app.get('/api/lands', (req, res) => res.json(db.getAllLands()));
@@ -77,6 +90,14 @@ app.post('/api/lands/:id/images', uploadDisk.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   const updated = db.updateLand(req.params.id, { images: [...land.images, `/uploads/${req.file.filename}`] });
   res.json(updated);
+});
+app.delete('/api/lands/:id/images/:index', (req, res) => {
+  const land = db.getLand(req.params.id);
+  if (!land) return res.status(404).json({ error: 'Not found' });
+  const idx = parseInt(req.params.index, 10);
+  if (isNaN(idx) || idx < 0 || idx >= land.images.length) return res.status(400).json({ error: 'Invalid index' });
+  const newImages = land.images.filter((_, i) => i !== idx);
+  res.json(db.updateLand(req.params.id, { images: newImages }));
 });
 
 // ── Settings API ──────────────────────────────────────────────
@@ -177,5 +198,7 @@ app.listen(PORT, () => {
   console.log(`DB_PATH env var: ${process.env.DB_PATH || '(not set — using local filesystem)'}`);
   console.log(`Database location: ${dbPath}`);
   console.log(`Database exists: ${fs.existsSync(dbPath)}`);
+  console.log(`Uploads directory: ${UPLOADS_DIR}`);
+  console.log(`Uploads dir exists: ${fs.existsSync(UPLOADS_DIR)}`);
   console.log(`/data directory exists: ${fs.existsSync('/data')}`);
 });

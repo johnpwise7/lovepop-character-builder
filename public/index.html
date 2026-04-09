@@ -218,6 +218,13 @@
               </div>
             </div>
           </div>
+          <div class="form-section">
+            <div class="form-section-title">Images</div>
+            <div class="form-hint" style="margin-bottom:12px">The first image is used as the tile thumbnail. The AI panel image is also saved here on create.</div>
+            <div id="editor-images-gallery" class="editor-images-gallery"></div>
+            <label class="btn-add-image" for="editor-image-upload">+ Add Image</label>
+            <input type="file" id="editor-image-upload" accept="image/*" multiple style="display:none" />
+          </div>
         </div>
       </div>
     </div>
@@ -310,6 +317,13 @@
               </select>
             </div>
           </div>
+          <div class="form-section">
+            <div class="form-section-title">Images</div>
+            <div class="form-hint" style="margin-bottom:12px">The first image is used as the tile thumbnail. The AI panel image is also saved here on create.</div>
+            <div id="land-editor-images-gallery" class="editor-images-gallery"></div>
+            <label class="btn-add-image" for="land-editor-image-upload">+ Add Image</label>
+            <input type="file" id="land-editor-image-upload" accept="image/*" multiple style="display:none" />
+          </div>
         </div>
       </div>
     </div>
@@ -400,7 +414,12 @@
             </div>
           </div>
           <div class="detail-sidebar">
-            <div class="detail-section"><div class="detail-section-label">Images</div><div class="image-gallery" id="detail-images"></div></div>
+            <div class="detail-section">
+              <div class="detail-section-label">Images</div>
+              <div class="image-gallery" id="detail-images"></div>
+              <label class="btn-add-image" for="detail-image-upload" style="margin-top:10px">+ Add Image</label>
+              <input type="file" id="detail-image-upload" accept="image/*" multiple style="display:none" />
+            </div>
           </div>
         </div>
       </div>
@@ -432,7 +451,12 @@
             <div class="detail-section"><div class="detail-section-label">Status</div><div id="land-detail-status"></div></div>
           </div>
           <div class="detail-sidebar">
-            <div class="detail-section"><div class="detail-section-label">Images</div><div class="image-gallery" id="land-detail-images"></div></div>
+            <div class="detail-section">
+              <div class="detail-section-label">Images</div>
+              <div class="image-gallery" id="land-detail-images"></div>
+              <label class="btn-add-image" for="land-detail-image-upload" style="margin-top:10px">+ Add Image</label>
+              <input type="file" id="land-detail-image-upload" accept="image/*" multiple style="display:none" />
+            </div>
           </div>
         </div>
       </div>

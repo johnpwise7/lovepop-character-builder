@@ -20,6 +20,8 @@ let aiImageFile = null;
 let landAiImageFile = null;
 let aiGeneratedData = {};
 let landAiGeneratedData = {};
+let pendingCharImages = [];   // File[] queued for upload on create
+let pendingLandImages = [];   // File[] queued for upload on create
 
 const CHAR_FIELD_META = [
   { key: 'name',                 label: 'Name',                   inputId: 'f-name' },
@@ -174,6 +176,7 @@ function openEditorView(mode, charId = null) {
   editorCharId = charId;
   aiGeneratedData = {};
   aiImageFile = null;
+  pendingCharImages = [];
   clearAIPanel();
   if (mode === 'edit' && charId) {
     const char = characters.find(c => c.id === charId);
@@ -182,11 +185,13 @@ function openEditorView(mode, charId = null) {
     CHAR_FIELD_META.forEach(f => { const el = document.getElementById(f.inputId); if (el) el.value = char[f.key] || ''; });
     document.getElementById('f-status').value = char.status || 'active';
     document.getElementById('f-first-appeared').value = char.first_appeared || '';
+    renderEditorImages(char.images || []);
   } else {
     document.getElementById('editor-title').textContent = 'New Character';
     CHAR_FIELD_META.forEach(f => { const el = document.getElementById(f.inputId); if (el) el.value = ''; });
     document.getElementById('f-status').value = 'active';
     document.getElementById('f-first-appeared').value = '';
+    renderEditorImages([]);
   }
   document.getElementById('editor-save-status').textContent = '';
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -196,10 +201,91 @@ function openEditorView(mode, charId = null) {
   window.scrollTo(0, 0);
 }
 
+function renderEditorImages(existingUrls) {
+  const gallery = document.getElementById('editor-images-gallery');
+  gallery.innerHTML = '';
+  // Render existing saved images
+  existingUrls.forEach((url, idx) => {
+    const item = document.createElement('div');
+    item.className = 'editor-image-item';
+    item.innerHTML = `
+      <img src="${esc(url)}" alt="Image ${idx + 1}" loading="lazy" />
+      ${idx === 0 ? '<span class="img-primary-badge">Primary</span>' : ''}
+      <button class="img-remove-btn" title="Remove image" aria-label="Remove">✕</button>`;
+    item.querySelector('.img-remove-btn').addEventListener('click', () => handleCharImageRemove(idx));
+    gallery.appendChild(item);
+  });
+  // Render pending (not-yet-uploaded) images
+  pendingCharImages.forEach((file, idx) => {
+    const item = document.createElement('div');
+    item.className = 'editor-image-pending';
+    const img = document.createElement('img');
+    img.alt = 'Pending upload';
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; };
+    reader.readAsDataURL(file);
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'img-remove-btn';
+    removeBtn.title = 'Remove';
+    removeBtn.textContent = '✕';
+    removeBtn.addEventListener('click', () => {
+      pendingCharImages.splice(idx, 1);
+      const char = editorMode === 'edit' ? characters.find(c => c.id === editorCharId) : null;
+      renderEditorImages(char ? char.images || [] : []);
+    });
+    item.appendChild(img);
+    item.appendChild(removeBtn);
+    gallery.appendChild(item);
+  });
+}
+
+async function handleCharImageRemove(idx) {
+  if (editorMode === 'edit' && editorCharId) {
+    try {
+      const res = await fetch(`${API}/${editorCharId}/images/${idx}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Remove failed');
+      const updated = await res.json();
+      characters = characters.map(c => c.id === updated.id ? updated : c);
+      renderEditorImages(updated.images || []);
+      renderCatalog();
+    } catch (err) { alert('Could not remove image: ' + err.message); }
+  }
+}
+
 function bindEditor() {
   document.getElementById('editor-back-btn').addEventListener('click', () => goBack('catalog'));
   document.getElementById('editor-cancel-btn').addEventListener('click', () => goBack('catalog'));
   document.getElementById('editor-save-btn').addEventListener('click', handleEditorSave);
+  document.getElementById('editor-image-upload').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    if (editorMode === 'edit' && editorCharId) {
+      // Upload immediately in edit mode
+      const btn = document.getElementById('editor-save-btn');
+      btn.disabled = true;
+      const prevText = btn.textContent;
+      btn.textContent = 'Uploading…';
+      try {
+        let updated;
+        for (const file of files) {
+          const fd = new FormData();
+          fd.append('image', file);
+          const res = await fetch(`${API}/${editorCharId}/images`, { method: 'POST', body: fd });
+          if (!res.ok) throw new Error('Upload failed');
+          updated = await res.json();
+        }
+        characters = characters.map(c => c.id === updated.id ? updated : c);
+        renderEditorImages(updated.images || []);
+        renderCatalog();
+      } catch (err) { alert('Upload failed: ' + err.message); }
+      finally { btn.disabled = false; btn.textContent = prevText; }
+    } else {
+      // Queue for upload after character is created
+      pendingCharImages.push(...files);
+      renderEditorImages([]);
+    }
+    e.target.value = '';
+  });
 }
 
 async function handleEditorSave() {
@@ -220,13 +306,24 @@ async function handleEditorSave() {
 
   try {
     let saved = await saveCharacter(data);
+    // Collect all images to upload: AI image first (if new/no images), then any pending picks
+    const toUpload = [];
     if (aiImageFile && (editorMode === 'create' || !saved.images || saved.images.length === 0)) {
-      btn.textContent = 'Uploading image…';
-      const fd = new FormData();
-      fd.append('image', aiImageFile);
-      const imgRes = await fetch(`${API}/${saved.id}/images`, { method: 'POST', body: fd });
-      if (imgRes.ok) saved = await imgRes.json();
+      toUpload.push(aiImageFile);
     }
+    toUpload.push(...pendingCharImages);
+
+    if (toUpload.length) {
+      btn.textContent = 'Uploading images…';
+      for (const file of toUpload) {
+        const fd = new FormData();
+        fd.append('image', file);
+        const imgRes = await fetch(`${API}/${saved.id}/images`, { method: 'POST', body: fd });
+        if (imgRes.ok) saved = await imgRes.json();
+      }
+    }
+    pendingCharImages = [];
+
     if (editorMode === 'edit') {
       characters = characters.map(c => c.id === saved.id ? saved : c);
     } else {
@@ -483,6 +580,7 @@ function openLandEditorView(mode, landId = null) {
   landEditorId = landId;
   landAiGeneratedData = {};
   landAiImageFile = null;
+  pendingLandImages = [];
   clearLandAIPanel();
 
   if (mode === 'edit' && landId) {
@@ -491,10 +589,12 @@ function openLandEditorView(mode, landId = null) {
     document.getElementById('land-editor-title').textContent = land.name;
     LAND_FIELD_META.forEach(f => { const el = document.getElementById(f.inputId); if (el) el.value = land[f.key] || ''; });
     document.getElementById('fl-status').value = land.status || 'active';
+    renderLandEditorImages(land.images || []);
   } else {
     document.getElementById('land-editor-title').textContent = 'New Land';
     LAND_FIELD_META.forEach(f => { const el = document.getElementById(f.inputId); if (el) el.value = ''; });
     document.getElementById('fl-status').value = 'active';
+    renderLandEditorImages([]);
   }
 
   document.getElementById('land-editor-save-status').textContent = '';
@@ -505,10 +605,87 @@ function openLandEditorView(mode, landId = null) {
   window.scrollTo(0, 0);
 }
 
+function renderLandEditorImages(existingUrls) {
+  const gallery = document.getElementById('land-editor-images-gallery');
+  gallery.innerHTML = '';
+  existingUrls.forEach((url, idx) => {
+    const item = document.createElement('div');
+    item.className = 'editor-image-item';
+    item.innerHTML = `
+      <img src="${esc(url)}" alt="Image ${idx + 1}" loading="lazy" />
+      ${idx === 0 ? '<span class="img-primary-badge">Primary</span>' : ''}
+      <button class="img-remove-btn" title="Remove image" aria-label="Remove">✕</button>`;
+    item.querySelector('.img-remove-btn').addEventListener('click', () => handleLandImageRemove(idx));
+    gallery.appendChild(item);
+  });
+  pendingLandImages.forEach((file, idx) => {
+    const item = document.createElement('div');
+    item.className = 'editor-image-pending';
+    const img = document.createElement('img');
+    img.alt = 'Pending upload';
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; };
+    reader.readAsDataURL(file);
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'img-remove-btn';
+    removeBtn.title = 'Remove';
+    removeBtn.textContent = '✕';
+    removeBtn.addEventListener('click', () => {
+      pendingLandImages.splice(idx, 1);
+      const land = landEditorMode === 'edit' ? lands.find(l => l.id === landEditorId) : null;
+      renderLandEditorImages(land ? land.images || [] : []);
+    });
+    item.appendChild(img);
+    item.appendChild(removeBtn);
+    gallery.appendChild(item);
+  });
+}
+
+async function handleLandImageRemove(idx) {
+  if (landEditorMode === 'edit' && landEditorId) {
+    try {
+      const res = await fetch(`${LANDS_API}/${landEditorId}/images/${idx}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Remove failed');
+      const updated = await res.json();
+      lands = lands.map(l => l.id === updated.id ? updated : l);
+      renderLandEditorImages(updated.images || []);
+      renderLands();
+    } catch (err) { alert('Could not remove image: ' + err.message); }
+  }
+}
+
 function bindLandEditor() {
   document.getElementById('land-editor-back-btn').addEventListener('click', () => goBack('lands'));
   document.getElementById('land-editor-cancel-btn').addEventListener('click', () => goBack('lands'));
   document.getElementById('land-editor-save-btn').addEventListener('click', handleLandEditorSave);
+  document.getElementById('land-editor-image-upload').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    if (landEditorMode === 'edit' && landEditorId) {
+      const btn = document.getElementById('land-editor-save-btn');
+      btn.disabled = true;
+      const prevText = btn.textContent;
+      btn.textContent = 'Uploading…';
+      try {
+        let updated;
+        for (const file of files) {
+          const fd = new FormData();
+          fd.append('image', file);
+          const res = await fetch(`${LANDS_API}/${landEditorId}/images`, { method: 'POST', body: fd });
+          if (!res.ok) throw new Error('Upload failed');
+          updated = await res.json();
+        }
+        lands = lands.map(l => l.id === updated.id ? updated : l);
+        renderLandEditorImages(updated.images || []);
+        renderLands();
+      } catch (err) { alert('Upload failed: ' + err.message); }
+      finally { btn.disabled = false; btn.textContent = prevText; }
+    } else {
+      pendingLandImages.push(...files);
+      renderLandEditorImages([]);
+    }
+    e.target.value = '';
+  });
 }
 
 async function handleLandEditorSave() {
@@ -528,13 +705,23 @@ async function handleLandEditorSave() {
 
   try {
     let saved = await saveLand(data);
+    const toUpload = [];
     if (landAiImageFile && (landEditorMode === 'create' || !saved.images || saved.images.length === 0)) {
-      btn.textContent = 'Uploading image…';
-      const fd = new FormData();
-      fd.append('image', landAiImageFile);
-      const imgRes = await fetch(`${LANDS_API}/${saved.id}/images`, { method: 'POST', body: fd });
-      if (imgRes.ok) saved = await imgRes.json();
+      toUpload.push(landAiImageFile);
     }
+    toUpload.push(...pendingLandImages);
+
+    if (toUpload.length) {
+      btn.textContent = 'Uploading images…';
+      for (const file of toUpload) {
+        const fd = new FormData();
+        fd.append('image', file);
+        const imgRes = await fetch(`${LANDS_API}/${saved.id}/images`, { method: 'POST', body: fd });
+        if (imgRes.ok) saved = await imgRes.json();
+      }
+    }
+    pendingLandImages = [];
+
     if (landEditorMode === 'edit') {
       lands = lands.map(l => l.id === saved.id ? saved : l);
     } else {
@@ -597,6 +784,24 @@ function bindDetailModal() {
   document.getElementById('detail-delete-btn').addEventListener('click', handleDeleteChar);
   document.getElementById('detail-edit-btn').addEventListener('click', () => { closeDetailModal(); openEditorView('edit', activeDetailId); });
   document.getElementById('modal-detail').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDetailModal(); });
+  document.getElementById('detail-image-upload').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !activeDetailId) return;
+    try {
+      let updated;
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('image', file);
+        const res = await fetch(`${API}/${activeDetailId}/images`, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error('Upload failed');
+        updated = await res.json();
+      }
+      characters = characters.map(c => c.id === updated.id ? updated : c);
+      renderDetailImages(updated);
+      renderCatalog();
+    } catch (err) { alert('Upload failed: ' + err.message); }
+    e.target.value = '';
+  });
 }
 
 function openDetailModal(id) {
@@ -611,12 +816,34 @@ function openDetailModal(id) {
   });
   document.getElementById('detail-status').innerHTML = `<span class="status-badge status-${char.status}">${cap(char.status)}</span>`;
 
-  const imgEl = document.getElementById('detail-images');
-  imgEl.innerHTML = char.images && char.images.length
-    ? char.images.map(s => `<img src="${esc(s)}" alt="${esc(char.name)}" />`).join('')
-    : `<div class="image-placeholder"><div class="image-placeholder-icon">🖼</div><div class="image-placeholder-text">No images yet</div></div>`;
-
+  renderDetailImages(char);
   document.getElementById('modal-detail').classList.remove('hidden');
+}
+
+function renderDetailImages(char) {
+  const imgEl = document.getElementById('detail-images');
+  if (char.images && char.images.length) {
+    imgEl.innerHTML = '';
+    char.images.forEach((src, idx) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:relative;';
+      wrapper.innerHTML = `<img src="${esc(src)}" alt="${esc(char.name)}" style="cursor:default" />
+        <button style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(214,59,47,.8);color:#fff;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;padding:0" title="Remove image">✕</button>`;
+      wrapper.querySelector('button').addEventListener('click', async () => {
+        try {
+          const res = await fetch(`${API}/${char.id}/images/${idx}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error('Remove failed');
+          const updated = await res.json();
+          characters = characters.map(c => c.id === updated.id ? updated : c);
+          renderDetailImages(updated);
+          renderCatalog();
+        } catch (err) { alert('Could not remove: ' + err.message); }
+      });
+      imgEl.appendChild(wrapper);
+    });
+  } else {
+    imgEl.innerHTML = `<div class="image-placeholder"><div class="image-placeholder-icon">🖼</div><div class="image-placeholder-text">No images yet</div></div>`;
+  }
 }
 
 function closeDetailModal() {
@@ -642,6 +869,24 @@ function bindLandDetailModal() {
   document.getElementById('land-detail-delete-btn').addEventListener('click', handleDeleteLand);
   document.getElementById('land-detail-edit-btn').addEventListener('click', () => { closeLandDetailModal(); openLandEditorView('edit', activeLandDetailId); });
   document.getElementById('modal-land-detail').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeLandDetailModal(); });
+  document.getElementById('land-detail-image-upload').addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !activeLandDetailId) return;
+    try {
+      let updated;
+      for (const file of files) {
+        const fd = new FormData();
+        fd.append('image', file);
+        const res = await fetch(`${LANDS_API}/${activeLandDetailId}/images`, { method: 'POST', body: fd });
+        if (!res.ok) throw new Error('Upload failed');
+        updated = await res.json();
+      }
+      lands = lands.map(l => l.id === updated.id ? updated : l);
+      renderLandDetailImages(updated);
+      renderLands();
+    } catch (err) { alert('Upload failed: ' + err.message); }
+    e.target.value = '';
+  });
 }
 
 function openLandDetailModal(id) {
@@ -656,12 +901,34 @@ function openLandDetailModal(id) {
   });
   document.getElementById('land-detail-status').innerHTML = `<span class="status-badge status-${land.status}">${cap(land.status)}</span>`;
 
-  const imgEl = document.getElementById('land-detail-images');
-  imgEl.innerHTML = land.images && land.images.length
-    ? land.images.map(s => `<img src="${esc(s)}" alt="${esc(land.name)}" />`).join('')
-    : `<div class="image-placeholder"><div class="image-placeholder-icon">🖼</div><div class="image-placeholder-text">No images yet</div></div>`;
-
+  renderLandDetailImages(land);
   document.getElementById('modal-land-detail').classList.remove('hidden');
+}
+
+function renderLandDetailImages(land) {
+  const imgEl = document.getElementById('land-detail-images');
+  if (land.images && land.images.length) {
+    imgEl.innerHTML = '';
+    land.images.forEach((src, idx) => {
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:relative;';
+      wrapper.innerHTML = `<img src="${esc(src)}" alt="${esc(land.name)}" style="cursor:default" />
+        <button style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(214,59,47,.8);color:#fff;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;padding:0" title="Remove image">✕</button>`;
+      wrapper.querySelector('button').addEventListener('click', async () => {
+        try {
+          const res = await fetch(`${LANDS_API}/${land.id}/images/${idx}`, { method: 'DELETE' });
+          if (!res.ok) throw new Error('Remove failed');
+          const updated = await res.json();
+          lands = lands.map(l => l.id === updated.id ? updated : l);
+          renderLandDetailImages(updated);
+          renderLands();
+        } catch (err) { alert('Could not remove: ' + err.message); }
+      });
+      imgEl.appendChild(wrapper);
+    });
+  } else {
+    imgEl.innerHTML = `<div class="image-placeholder"><div class="image-placeholder-icon">🖼</div><div class="image-placeholder-text">No images yet</div></div>`;
+  }
 }
 
 function closeLandDetailModal() {

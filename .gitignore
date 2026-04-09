@@ -1,0 +1,7 @@
+node_modules/
+characters.db
+characters.db-shm
+characters.db-wal
+public/uploads/*
+!public/uploads/.gitkeep
+.env

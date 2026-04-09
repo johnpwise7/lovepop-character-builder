@@ -1,0 +1,17 @@
+{
+  "name": "lovepop-character-builder",
+  "version": "1.0.0",
+  "description": "Lovepop Character Builder & Catalog",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^2.0.0"
+  }
+}

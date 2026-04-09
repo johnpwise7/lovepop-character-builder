@@ -150,6 +150,18 @@ html, body {
 }
 .btn-danger:hover { background: #fad4d1; }
 
+.btn-export {
+  background: var(--white); color: var(--navy);
+  border: 1.5px solid var(--sand-mid);
+  font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+  padding: 7px 14px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: all 0.15s ease; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.btn-export:hover { background: var(--green-bg); border-color: var(--green-border); color: var(--green); }
+.btn-export:active { transform: translateY(1px); }
+.btn-export:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .btn-back {
   background: none; border: none;
   font-size: 13px; color: var(--gray); font-weight: 500;

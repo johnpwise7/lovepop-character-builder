@@ -107,6 +107,7 @@ function bindCatalog() {
   document.getElementById('btn-list-view').addEventListener('click', () => setDisplayMode('list'));
   document.getElementById('catalog-new-btn').addEventListener('click', () => openEditorView('create'));
   document.getElementById('empty-new-btn').addEventListener('click', () => openEditorView('create'));
+  document.getElementById('catalog-export-btn').addEventListener('click', exportCharactersToExcel);
 }
 
 function setDisplayMode(mode) {
@@ -512,6 +513,7 @@ function bindLands() {
   document.getElementById('btn-lands-list-view').addEventListener('click', () => setLandsDisplayMode('list'));
   document.getElementById('lands-new-btn').addEventListener('click', () => openLandEditorView('create'));
   document.getElementById('lands-empty-new-btn').addEventListener('click', () => openLandEditorView('create'));
+  document.getElementById('lands-export-btn').addEventListener('click', exportLandsToExcel);
 }
 
 function setLandsDisplayMode(mode) {
@@ -950,6 +952,7 @@ async function handleDeleteLand() {
 // ── Settings ──────────────────────────────────────────────────
 function bindSettings() {
   document.getElementById('settings-save-btn').addEventListener('click', handleSettingsSave);
+  document.getElementById('settings-export-btn').addEventListener('click', exportSettingsToExcel);
 }
 
 async function loadSettings() {
@@ -1012,6 +1015,141 @@ async function handleSettingsSave() {
     alert('Save failed: ' + err.message);
     btn.disabled = false; btn.textContent = 'Save Settings';
   }
+}
+
+// ── Excel Export ──────────────────────────────────────────────
+function xlsxDownload(workbook, filename) {
+  XLSX.writeFile(workbook, filename);
+}
+
+function fmtExportDate(iso) {
+  try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+  catch { return iso || ''; }
+}
+
+function exportCharactersToExcel() {
+  const btn = document.getElementById('catalog-export-btn');
+  btn.disabled = true; btn.textContent = '⬇ Exporting…';
+  try {
+    const rows = characters.map(c => ({
+      'Name':                c.name || '',
+      'Species':             c.species || '',
+      'Role':                c.role || '',
+      'Backstory':           c.backstory || '',
+      'Personality':         c.personality || '',
+      'Key Passions':        c.key_passions || '',
+      'What They Care About':c.what_they_care_about || '',
+      'Tone & Voice':        c.tone_and_voice || '',
+      'Status':              c.status || '',
+      'First Appeared':      c.first_appeared || '',
+      'Images':              (c.images || []).join(', '),
+      'Created At':          fmtExportDate(c.created_at),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 20 }, { wch: 16 }, { wch: 40 }, { wch: 60 }, { wch: 50 },
+      { wch: 50 }, { wch: 40 }, { wch: 50 }, { wch: 10 }, { wch: 20 },
+      { wch: 40 }, { wch: 14 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Characters');
+    xlsxDownload(wb, `lovepop-characters-${datestamp()}.xlsx`);
+  } finally {
+    btn.disabled = false; btn.innerHTML = '⬇ Export to Excel';
+  }
+}
+
+function exportLandsToExcel() {
+  const btn = document.getElementById('lands-export-btn');
+  btn.disabled = true; btn.textContent = '⬇ Exporting…';
+  try {
+    const rows = lands.map(l => ({
+      'Name':              l.name || '',
+      'Description':       l.description || '',
+      'Visual Style':      l.visual_style || '',
+      'Color Palette':     l.color_palette || '',
+      'Themes & Content':  l.themes_and_content || '',
+      'Status':            l.status || '',
+      'Images':            (l.images || []).join(', '),
+      'Created At':        fmtExportDate(l.created_at),
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [
+      { wch: 26 }, { wch: 60 }, { wch: 50 }, { wch: 40 },
+      { wch: 60 }, { wch: 10 }, { wch: 40 }, { wch: 14 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Lands');
+    xlsxDownload(wb, `lovepop-lands-${datestamp()}.xlsx`);
+  } finally {
+    btn.disabled = false; btn.innerHTML = '⬇ Export to Excel';
+  }
+}
+
+async function exportSettingsToExcel() {
+  const btn = document.getElementById('settings-export-btn');
+  btn.disabled = true; btn.textContent = '⬇ Exporting…';
+  try {
+    const res = await fetch('/api/settings');
+    const s = await res.json();
+
+    // Sheet 1 — General AI settings
+    const generalRows = [
+      { 'Setting': 'AI Model',        'Value': s.ai_model || '' },
+      { 'Setting': 'AI System Prompt', 'Value': s.ai_system_prompt || '' },
+    ];
+    const wsGeneral = XLSX.utils.json_to_sheet(generalRows);
+    wsGeneral['!cols'] = [{ wch: 22 }, { wch: 100 }];
+
+    // Sheet 2 — Character field instructions
+    const charInstructionKeys = [
+      ['Name',                 'ai_instruction_name'],
+      ['Species',              'ai_instruction_species'],
+      ['Role',                 'ai_instruction_role'],
+      ['Backstory',            'ai_instruction_backstory'],
+      ['Personality',          'ai_instruction_personality'],
+      ['Key Passions',         'ai_instruction_key_passions'],
+      ['What They Care About', 'ai_instruction_what_they_care_about'],
+      ['Tone & Voice',         'ai_instruction_tone_and_voice'],
+    ];
+    const charRows = charInstructionKeys.map(([label, key]) => ({
+      'Field': label, 'AI Instruction': s[key] || '',
+    }));
+    const wsChar = XLSX.utils.json_to_sheet(charRows);
+    wsChar['!cols'] = [{ wch: 24 }, { wch: 110 }];
+
+    // Sheet 3 — Land field instructions
+    const landInstructionKeys = [
+      ['Name',              'ai_land_instruction_name'],
+      ['Description',       'ai_land_instruction_description'],
+      ['Visual Style',      'ai_land_instruction_visual_style'],
+      ['Color Palette',     'ai_land_instruction_color_palette'],
+      ['Themes & Content',  'ai_land_instruction_themes_and_content'],
+    ];
+    const landRows = landInstructionKeys.map(([label, key]) => ({
+      'Field': label, 'AI Instruction': s[key] || '',
+    }));
+    const wsLand = XLSX.utils.json_to_sheet(landRows);
+    wsLand['!cols'] = [{ wch: 22 }, { wch: 110 }];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsGeneral, 'General');
+    XLSX.utils.book_append_sheet(wb, wsChar,    'Character Instructions');
+    XLSX.utils.book_append_sheet(wb, wsLand,    'Land Instructions');
+    xlsxDownload(wb, `lovepop-settings-${datestamp()}.xlsx`);
+  } catch (err) {
+    alert('Export failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.innerHTML = '⬇ Export to Excel';
+  }
+}
+
+function datestamp() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // ── Helpers ───────────────────────────────────────────────────

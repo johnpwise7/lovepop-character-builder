@@ -48,6 +48,7 @@
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="2.5" rx="1.25" fill="currentColor"/><rect x="1" y="6.75" width="14" height="2.5" rx="1.25" fill="currentColor"/><rect x="1" y="11.5" width="14" height="2.5" rx="1.25" fill="currentColor"/></svg>
             </button>
           </div>
+          <button class="btn-export" id="catalog-export-btn">⬇ Export to Excel</button>
           <button class="btn-primary" id="catalog-new-btn">+ New Character</button>
         </div>
       </div>
@@ -88,6 +89,7 @@
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1" y="2" width="14" height="2.5" rx="1.25" fill="currentColor"/><rect x="1" y="6.75" width="14" height="2.5" rx="1.25" fill="currentColor"/><rect x="1" y="11.5" width="14" height="2.5" rx="1.25" fill="currentColor"/></svg>
             </button>
           </div>
+          <button class="btn-export" id="lands-export-btn">⬇ Export to Excel</button>
           <button class="btn-primary" id="lands-new-btn">+ New Land</button>
         </div>
       </div>
@@ -332,7 +334,10 @@
     <div id="view-settings" class="view">
       <div class="view-toolbar">
         <div class="toolbar-left"><h1 class="view-title">Settings</h1></div>
-        <div class="toolbar-right"><button class="btn-primary" id="settings-save-btn">Save Settings</button></div>
+        <div class="toolbar-right">
+          <button class="btn-export" id="settings-export-btn">⬇ Export to Excel</button>
+          <button class="btn-primary" id="settings-save-btn">Save Settings</button>
+        </div>
       </div>
       <div class="settings-layout">
         <div class="settings-card">
@@ -468,6 +473,7 @@
     </div>
   </div>
 
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script src="/app.js"></script>
 </body>
 </html>

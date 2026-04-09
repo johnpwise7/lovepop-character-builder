@@ -125,10 +125,13 @@ async function runAI({ req, res, fieldLabels, instructionPrefix }) {
   const settings  = db.getAllSettings();
   const { description = '' } = req.body;
 
-  const fieldBlock = Object.entries(fieldLabels).map(([key, label]) => {
+  // Wrap each field instruction in <…> so Claude reads them as placeholders,
+  // not as the literal JSON value. This prevents it from returning the
+  // instruction text as the value or skipping fields like key_passions.
+  const schemaLines = Object.entries(fieldLabels).map(([key, label]) => {
     const instruction = settings[`${instructionPrefix}${key}`] || db.DEFAULTS[`${instructionPrefix}${key}`] || label;
-    return `"${key}": ${instruction}`;
-  }).join('\n');
+    return `  "${key}": "<${instruction}>"`;
+  }).join(',\n');
 
   const userContent = [];
   if (req.file) {
@@ -138,23 +141,37 @@ async function runAI({ req, res, fieldLabels, instructionPrefix }) {
     type: 'text',
     text: [
       description ? `Description / notes:\n${description}\n` : '',
-      `Generate a profile as a JSON object with exactly these fields:`,
-      fieldBlock,
-      `\nRespond with valid JSON only. No markdown, no extra text.`,
+      `Generate a profile as a JSON object using EXACTLY these field names.`,
+      `Every value must be a plain string — never an array or nested object.`,
+      `Replace each <…> placeholder with the generated content:`,
+      `{\n${schemaLines}\n}`,
+      `\nRespond with valid JSON only — no markdown fences, no extra text.`,
     ].filter(Boolean).join('\n'),
   });
 
   try {
     const response = await anthropic.messages.create({
       model: settings.ai_model || db.DEFAULTS.ai_model,
-      max_tokens: 2048,
+      max_tokens: 4096,   // raised from 2048 — verbose fields like backstory were consuming the budget before key_passions
       system: settings.ai_system_prompt || db.DEFAULTS.ai_system_prompt,
       messages: [{ role: 'user', content: userContent }],
     });
     const rawText = response.content[0].text.trim();
     const jsonMatch = rawText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON found in response');
-    res.json(JSON.parse(jsonMatch[0]));
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    // Safety-net: if Claude still returns an array or object for any field,
+    // normalise it to a plain string so the UI can always render it.
+    for (const key of Object.keys(parsed)) {
+      if (Array.isArray(parsed[key])) {
+        parsed[key] = parsed[key].join('\n');
+      } else if (parsed[key] !== null && typeof parsed[key] === 'object') {
+        parsed[key] = Object.entries(parsed[key]).map(([k, v]) => `${k}. ${v}`).join('\n');
+      }
+    }
+
+    res.json(parsed);
   } catch (err) {
     console.error('AI error:', err);
     res.status(500).json({ error: err.message || 'AI generation failed' });

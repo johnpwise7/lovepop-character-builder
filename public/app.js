@@ -1105,24 +1105,6 @@ function bindDetailModal() {
   document.getElementById('detail-delete-btn').addEventListener('click', handleDeleteChar);
   document.getElementById('detail-edit-btn').addEventListener('click', () => { const id = activeDetailId; closeDetailModal(); openEditorView('edit', id); });
   document.getElementById('modal-detail').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDetailModal(); });
-  document.getElementById('detail-image-upload').addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length || !activeDetailId) return;
-    try {
-      let updated;
-      for (const file of files) {
-        const fd = new FormData();
-        fd.append('image', file);
-        const res = await fetch(`${API}/${activeDetailId}/images`, { method: 'POST', body: fd });
-        if (!res.ok) throw new Error('Upload failed');
-        updated = await res.json();
-      }
-      characters = characters.map(c => c.id === updated.id ? updated : c);
-      renderDetailImages(updated);
-      renderCatalog();
-    } catch (err) { alert('Upload failed: ' + err.message); }
-    e.target.value = '';
-  });
 }
 
 function openDetailModal(id) {

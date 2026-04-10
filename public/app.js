@@ -533,6 +533,10 @@ function renderLands() {
   document.getElementById('lands-count').textContent = `${n} land${n !== 1 ? 's' : ''}`;
   renderLandsTileView();
   renderLandsListView();
+  // Eagerly load products if any land has product_skus — so tile thumbnails appear automatically
+  if (!productsLoaded && lands.some(l => l.product_skus && l.product_skus.length)) {
+    loadProducts().then(() => renderLandsTileView()).catch(() => {});
+  }
 }
 
 function renderLandsTileView() {
@@ -566,15 +570,45 @@ function renderLandsListView() {
 
 function buildLandTile(land) {
   const tile = document.createElement('div');
-  tile.className = 'character-tile';
-  const imgHtml = land.images && land.images.length
-    ? `<img src="${esc(land.images[0])}" alt="${esc(land.name)}" loading="lazy" />`
-    : `<div class="tile-image-placeholder">🗺</div>`;
+  tile.className = 'character-tile land-tile';
+
+  // Optional featured image (small, in the header row)
+  const featuredThumb = (land.images && land.images.length)
+    ? `<img src="${esc(land.images[0])}" class="land-tile-featured-img" alt="${esc(land.name)}" loading="lazy" />`
+    : '';
+
+  // Description snippet
+  const descHtml = land.description
+    ? `<div class="land-tile-desc">${esc(land.description.substring(0, 110))}${land.description.length > 110 ? '…' : ''}</div>`
+    : '';
+
+  // Product family thumbnails (up to 5)
+  const skus = land.product_skus || [];
+  let pfHtml = '';
+  if (skus.length) {
+    const thumbs = skus.slice(0, 5).map(sku => {
+      const p = productsLoaded ? allProducts.find(pr => pr.sku === sku) : null;
+      return p && p.image_url
+        ? `<img src="${esc(p.image_url)}" class="land-tile-pf-thumb" title="${esc(p.name || sku)}" loading="lazy" />`
+        : `<div class="land-tile-pf-placeholder" title="${esc(sku)}"></div>`;
+    }).join('');
+    const more = skus.length > 5 ? `<div class="land-tile-pf-more">+${skus.length - 5}</div>` : '';
+    pfHtml = `
+      <div class="land-tile-pf">
+        <div class="land-tile-pf-label">Product Family · ${skus.length} SKU${skus.length !== 1 ? 's' : ''}</div>
+        <div class="land-tile-pf-thumbs">${thumbs}${more}</div>
+      </div>`;
+  }
+
   tile.innerHTML = `
-    <div class="tile-image">${imgHtml}<span class="tile-status-badge status-badge status-${land.status}">${cap(land.status)}</span></div>
-    <div class="tile-body">
+    <div class="land-tile-header">
+      <span class="status-badge status-${land.status}">${cap(land.status)}</span>
+      ${featuredThumb}
+    </div>
+    <div class="land-tile-body">
       <div class="tile-name">${esc(land.name)}</div>
-      ${land.visual_style ? `<div class="tile-sub">${esc(land.visual_style.substring(0, 80))}</div>` : ''}
+      ${descHtml}
+      ${pfHtml}
     </div>`;
   tile.addEventListener('click', () => openLandDetailModal(land.id));
   return tile;
@@ -950,30 +984,55 @@ function openLandDetailModal(id) {
   renderLandDetailImages(land);
   renderLandDetailProducts(land);
   document.getElementById('modal-land-detail').classList.remove('hidden');
+
+  // If this land has SKUs but products aren't loaded yet, load them and re-render the product section
+  const skus = land.product_skus || [];
+  if (skus.length && !productsLoaded) {
+    loadProducts().then(() => {
+      // Make sure the modal is still open for this same land before re-rendering
+      if (activeLandDetailId === id) renderLandDetailProducts(land);
+    }).catch(() => {});
+  }
 }
 
 function renderLandDetailProducts(land) {
   const section = document.getElementById('land-detail-products-section');
   const container = document.getElementById('land-detail-products');
+  const countEl = document.getElementById('land-pf-count');
   const skus = land.product_skus || [];
   if (!skus.length) { section.classList.add('hidden'); return; }
   section.classList.remove('hidden');
+  if (countEl) countEl.textContent = `${skus.length} SKU${skus.length !== 1 ? 's' : ''}`;
   container.innerHTML = '';
   skus.forEach(sku => {
     const product = productsLoaded ? allProducts.find(p => p.sku === sku) : null;
-    const item = document.createElement('div');
-    item.className = 'land-detail-product-item';
+    const card = document.createElement('div');
+    card.className = 'land-pf-card';
     if (product && product.image_url) {
-      item.innerHTML = `
-        <img src="${esc(product.image_url)}" alt="${esc(product.name)}" class="land-detail-product-thumb" />
-        <div>
-          <div class="land-detail-product-name">${esc(product.name)}</div>
-          <div class="land-detail-product-sku">${esc(sku)}</div>
+      const metaHtml = [
+        product.t12m_revenue != null  ? `<span>$${Number(product.t12m_revenue).toLocaleString()}</span>` : '',
+        product.t12m_units   != null  ? `<span>${Number(product.t12m_units).toLocaleString()} units</span>` : '',
+      ].filter(Boolean).join('<span class="land-pf-card-sep">·</span>');
+      card.innerHTML = `
+        <div class="land-pf-card-img-wrap">
+          <img src="${esc(product.image_url)}" alt="${esc(product.name)}" class="land-pf-card-img" loading="lazy" />
+        </div>
+        <div class="land-pf-card-body">
+          <div class="land-pf-card-name">${esc(product.name)}</div>
+          <div class="land-pf-card-sku">${esc(sku)}</div>
+          ${metaHtml ? `<div class="land-pf-card-meta">${metaHtml}</div>` : ''}
         </div>`;
     } else {
-      item.innerHTML = `<div class="land-detail-product-sku">${esc(sku)}</div>`;
+      card.innerHTML = `
+        <div class="land-pf-card-img-wrap land-pf-card-img-empty">
+          <span class="land-pf-card-img-icon">📦</span>
+        </div>
+        <div class="land-pf-card-body">
+          <div class="land-pf-card-name">${esc(sku)}</div>
+          <div class="land-pf-card-sku">Loading…</div>
+        </div>`;
     }
-    container.appendChild(item);
+    container.appendChild(card);
   });
 }
 

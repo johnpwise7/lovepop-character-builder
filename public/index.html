@@ -456,6 +456,20 @@
         <button class="modal-close" id="land-detail-close-btn">✕</button>
       </div>
       <div class="modal-body">
+
+        <!-- Product Family — full-width, above the 2-column grid -->
+        <div class="land-pf-section hidden" id="land-detail-products-section">
+          <div class="land-pf-section-header">
+            <div class="land-pf-section-title">
+              <span class="land-pf-icon">🛍</span> Product Family
+            </div>
+            <span class="land-pf-section-count" id="land-pf-count"></span>
+          </div>
+          <div class="land-pf-scroll-wrap">
+            <div id="land-detail-products" class="land-pf-cards"></div>
+          </div>
+        </div>
+
         <div class="detail-grid">
           <div class="detail-main">
             <div class="detail-section"><div class="detail-section-label">Description</div><div class="detail-section-content" id="land-detail-description">—</div></div>
@@ -463,10 +477,6 @@
             <div class="detail-section"><div class="detail-section-label">Color Palette</div><div class="detail-section-content" id="land-detail-color-palette">—</div></div>
             <div class="detail-section"><div class="detail-section-label">Themes &amp; Content</div><div class="detail-section-content" id="land-detail-themes-and-content">—</div></div>
             <div class="detail-section"><div class="detail-section-label">Status</div><div id="land-detail-status"></div></div>
-            <div class="detail-section hidden" id="land-detail-products-section">
-              <div class="detail-section-label">Associated Products</div>
-              <div id="land-detail-products" class="land-detail-products"></div>
-            </div>
           </div>
           <div class="detail-sidebar">
             <div class="detail-section">

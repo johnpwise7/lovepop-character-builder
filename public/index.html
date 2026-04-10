@@ -165,11 +165,10 @@
           </div>
 
           <!-- ── Artwork Generator ──────────────────────────────── -->
-          <div class="char-art-gen-divider"></div>
-          <div class="char-art-gen-section">
-            <div class="char-art-gen-header">
-              <span class="char-art-gen-title">🎨 AI Artwork Generator</span>
-              <span class="char-art-gen-hint">Generate character artwork using DALL-E 3</span>
+          <div class="char-art-panel">
+            <div class="ai-panel-header char-art-panel-header">
+              <span class="ai-panel-title">🎨 AI Artwork Generator</span>
+              <span class="ai-panel-sub">Generate character artwork from references using DALL-E 3</span>
             </div>
 
             <!-- Multi-image upload zone -->
@@ -183,7 +182,7 @@
               <div id="char-art-preview-strip" class="char-art-preview-strip hidden"></div>
             </div>
 
-            <div class="ai-desc-section" style="margin-top:10px">
+            <div class="ai-desc-section">
               <label class="form-label">Artwork notes</label>
               <textarea id="char-art-notes" class="form-textarea" rows="3"
                 placeholder="Describe the scene, pose, style, mood… Leave blank to use the character's story fields."></textarea>
@@ -200,7 +199,7 @@
               </div>
             </div>
 
-            <button class="btn-image-generate" id="char-art-generate-btn">
+            <button class="btn-image-generate char-art-generate-btn" id="char-art-generate-btn">
               <span class="btn-ai-icon">🎨</span> Generate Artwork
             </button>
             <div id="char-art-status" class="land-gen-status hidden"></div>

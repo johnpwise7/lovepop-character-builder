@@ -1071,20 +1071,21 @@ html, body {
 }
 
 /* ── Character Artwork Generator (AI panel) ─────────────────── */
-.char-art-gen-divider {
-  height: 1px; background: rgba(255,255,255,0.1);
-  margin: 18px 14px 0;
+.char-art-panel {
+  background: white;
+  border: 1px solid var(--sand-mid);
+  border-radius: var(--radius-lg);
+  margin-top: 16px;
+  overflow: hidden;
 }
-.char-art-gen-section { padding: 14px 14px 20px; }
-.char-art-gen-header { margin-bottom: 12px; }
-.char-art-gen-title {
-  display: block; font-size: 13px; font-weight: 700; color: var(--navy);
-  margin-bottom: 2px;
+.char-art-panel-header {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: linear-gradient(135deg, #2d3a4a 0%, #3d5068 100%);
 }
-.char-art-gen-hint { font-size: 11px; color: rgba(255,255,255,0.55); }
 
 /* Multi-image upload zone */
 .char-art-upload-zone {
+  margin: 14px 14px 0;
   border: 1.5px dashed var(--sand-mid);
   border-radius: var(--radius-md);
   overflow: hidden; cursor: pointer;
@@ -1129,6 +1130,25 @@ html, body {
   cursor: pointer; flex-shrink: 0; transition: border-color .15s, color .15s;
 }
 .char-art-ref-add:hover { border-color: var(--coral); color: var(--coral); }
+
+/* Generate button inside artwork panel — full width with side margins */
+.char-art-generate-btn {
+  margin: 0 14px 16px;
+  width: calc(100% - 28px);
+}
+
+/* Status + preview inside the white artwork panel — override dark-bg defaults */
+.char-art-panel .land-gen-status {
+  margin: 0 14px 12px;
+  background: var(--sand); color: var(--gray);
+}
+.char-art-panel .land-gen-preview-wrap {
+  margin: 0 14px 12px;
+}
+.char-art-panel .btn-sm.btn-ghost {
+  color: var(--gray-light);
+}
+.char-art-panel .btn-sm.btn-ghost:hover { color: var(--navy); }
 
 /* ── Land Headline Image Generator (AI panel) ────────────────── */
 .land-img-gen-divider {

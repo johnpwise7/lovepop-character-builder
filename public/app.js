@@ -282,13 +282,21 @@ async function handleCharImageRemove(idx) {
   }
 }
 
-// ── Editor tab switching ──────────────────────────────────────
+// ── Editor tab switching (characters) ────────────────────────
 function switchEditorTab(tab) {
-  document.querySelectorAll('.editor-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  document.querySelectorAll('#view-editor .editor-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
   document.getElementById('editor-tab-story').classList.toggle('hidden', tab !== 'story');
   document.getElementById('editor-tab-artwork').classList.toggle('hidden', tab !== 'artwork');
   document.getElementById('editor-tab-products').classList.toggle('hidden', tab !== 'products');
   if (tab === 'artwork') { renderApprovedGallery(); renderSourceGallery(); }
+}
+
+// ── Land editor tab switching ─────────────────────────────────
+function switchLandEditorTab(tab) {
+  document.querySelectorAll('#view-land-editor .editor-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  document.getElementById('land-editor-tab-profile').classList.toggle('hidden', tab !== 'land-profile');
+  document.getElementById('land-editor-tab-artwork').classList.toggle('hidden', tab !== 'land-artwork');
+  document.getElementById('land-editor-tab-products').classList.toggle('hidden', tab !== 'land-products');
 }
 
 function bindEditor() {
@@ -803,6 +811,7 @@ function openLandEditorView(mode, landId = null) {
   }
 
   document.getElementById('land-editor-save-status').textContent = '';
+  switchLandEditorTab('land-profile');
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-land-editor').classList.add('active');
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -871,6 +880,9 @@ async function handleLandImageRemove(idx) {
 }
 
 function bindLandEditor() {
+  document.querySelectorAll('#view-land-editor .editor-tab').forEach(btn => {
+    btn.addEventListener('click', () => switchLandEditorTab(btn.dataset.tab));
+  });
   document.getElementById('land-editor-back-btn').addEventListener('click', () => goBack('lands'));
   document.getElementById('land-editor-cancel-btn').addEventListener('click', () => goBack('lands'));
   document.getElementById('land-editor-save-btn').addEventListener('click', handleLandEditorSave);
@@ -982,10 +994,6 @@ function bindLandAIPanel() {
   document.getElementById('land-ai-generate-btn').addEventListener('click', handleLandAIGenerate);
   document.getElementById('land-ai-apply-all-btn').addEventListener('click', () => applyAllAI(LAND_FIELD_META, landAiGeneratedData));
   document.getElementById('land-ai-goto-settings').addEventListener('click', (e) => { e.preventDefault(); switchView('settings'); loadSettings(); });
-  document.getElementById('land-product-selection-clear').addEventListener('click', () => {
-    clearLandProductSelection();
-    document.getElementById('land-ai-description').value = '';
-  });
 }
 
 function clearLandAIPanel() {
@@ -2144,7 +2152,6 @@ function renderLandProductSelection() {
 
 function bindProductPicker() {
   document.getElementById('land-browse-products-btn').addEventListener('click', () => openProductPicker('land'));
-  document.getElementById('land-browse-products-btn2').addEventListener('click', () => openProductPicker('land'));
   document.getElementById('char-browse-products-btn').addEventListener('click', () => openProductPicker('character'));
   document.getElementById('product-picker-close-btn').addEventListener('click', closeProductPicker);
   document.getElementById('product-picker-cancel-btn').addEventListener('click', closeProductPicker);

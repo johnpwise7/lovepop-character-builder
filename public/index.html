@@ -346,18 +346,22 @@
           <button class="btn-primary" id="land-editor-save-btn">Save Land</button>
         </div>
       </div>
-      <div class="editor-layout">
+
+      <!-- ── Land Editor Tabs ──────────────────────────────────── -->
+      <div class="editor-tabs">
+        <button class="editor-tab active" data-tab="land-profile">Land Profile</button>
+        <button class="editor-tab" data-tab="land-artwork">Land Artwork</button>
+        <button class="editor-tab" data-tab="land-products">Land Products</button>
+      </div>
+
+      <!-- ══ Tab: Land Profile ══════════════════════════════════ -->
+      <div id="land-editor-tab-profile" class="editor-tab-panel editor-layout">
         <aside class="ai-panel">
           <div class="ai-panel-header">
-            <span class="ai-panel-title">✨ AI Generator</span>
-            <span class="ai-panel-sub">Select products + add notes to generate your land</span>
+            <span class="ai-panel-title">✨ Story Builder</span>
+            <span class="ai-panel-sub">Add notes to generate your land profile</span>
           </div>
-          <button class="btn-browse-products btn-browse-products-primary" id="land-browse-products-btn">🛍 Browse Product Library</button>
-          <div id="land-product-selection" class="land-ai-pf-badge hidden">
-            <span class="land-ai-pf-badge-text">📦 <span id="land-product-selection-count">0</span> product(s) selected</span>
-            <button class="land-product-selection-clear" id="land-product-selection-clear">✕ Clear all</button>
-          </div>
-          <div class="product-browse-divider land-ai-ref-divider"><span>or add a reference image</span></div>
+          <div class="product-browse-divider land-ai-ref-divider" style="margin-top:0"><span>add a reference image</span></div>
           <div class="ai-image-zone ai-image-zone-compact" id="land-ai-image-zone">
             <input type="file" id="land-ai-image-input" accept="image/*" style="display:none" />
             <div class="ai-image-placeholder ai-image-placeholder-compact" id="land-ai-image-placeholder">
@@ -373,7 +377,7 @@
               placeholder="Describe the look and feel of this land, its mood, colors, themes…"></textarea>
           </div>
           <button class="btn-ai-generate" id="land-ai-generate-btn">
-            <span class="btn-ai-icon">✨</span> Generate with AI
+            <span class="btn-ai-icon">✨</span> Generate
           </button>
           <div id="land-ai-key-warning" class="ai-key-warning hidden">
             ⚠️ No API key configured. <a href="#" id="land-ai-goto-settings">Add it in Settings →</a>
@@ -385,43 +389,13 @@
             </div>
             <div id="land-ai-result-cards"></div>
           </div>
-
-          <!-- ── Headline Image Generator ───────────────────── -->
-          <div class="land-img-gen-divider"></div>
-          <div class="land-img-gen-section">
-            <div class="land-img-gen-header">
-              <span class="land-img-gen-title">🎨 Headline Image</span>
-              <span class="land-img-gen-hint">AI-generated hero image for this land</span>
-            </div>
-
-            <!-- Preview (shown after generation) -->
-            <div id="land-gen-preview-wrap" class="land-gen-preview-wrap hidden">
-              <img id="land-gen-preview-img" class="land-gen-preview-img" alt="Generated headline image" />
-              <div id="land-gen-prompt-peek" class="land-gen-prompt-peek hidden"></div>
-              <div class="land-gen-preview-actions">
-                <button class="btn-primary btn-sm" id="land-gen-accept-btn">✓ Use as Hero Image</button>
-                <button class="btn-secondary btn-sm" id="land-gen-regen-btn">↺ Regenerate</button>
-                <button class="btn-ghost btn-sm" id="land-gen-discard-btn">✕ Discard</button>
-              </div>
-            </div>
-
-            <button class="btn-image-generate" id="land-gen-image-btn">
-              <span class="btn-ai-icon">🎨</span> Generate Headline Image
-            </button>
-            <div id="land-gen-status" class="land-gen-status hidden"></div>
-            <div id="land-gen-openai-warning" class="ai-key-warning hidden">
-              ⚠️ OpenAI API key needed for image generation. <a href="#" id="land-gen-goto-settings">Add it in Settings →</a>
-            </div>
-          </div>
         </aside>
         <div class="editor-form">
           <div class="form-section">
             <div class="form-section-title">Identity</div>
-            <div class="form-row-2">
-              <div class="form-group" style="grid-column:1/-1">
-                <label class="form-label">Land Name <span class="required">*</span></label>
-                <input type="text" id="fl-name" class="form-input" placeholder="e.g. The Meadow of Soft Mornings" />
-              </div>
+            <div class="form-group">
+              <label class="form-label">Land Name <span class="required">*</span></label>
+              <input type="text" id="fl-name" class="form-input" placeholder="e.g. The Meadow of Soft Mornings" />
             </div>
             <div class="form-group">
               <label class="form-label">Description</label>
@@ -444,27 +418,6 @@
             </div>
           </div>
           <div class="form-section">
-            <div class="form-section-title">Product Family</div>
-            <div class="form-hint" style="margin-bottom:14px">Products permanently associated with this land. Selected SKUs are also used as visual reference for AI generation.</div>
-
-            <!-- Empty state -->
-            <div id="land-editor-pf-empty" class="land-editor-pf-empty">
-              <span class="land-editor-pf-empty-icon">📦</span>
-              <span>No products selected yet</span>
-            </div>
-
-            <!-- Card display (shown when products are selected) -->
-            <div id="land-editor-pf-scroll" class="land-pf-scroll-wrap hidden">
-              <div id="land-editor-pf-cards" class="land-pf-cards"></div>
-            </div>
-
-            <div class="land-editor-pf-actions">
-              <button class="btn-secondary" id="land-browse-products-btn2">🛍 Browse Product Library</button>
-              <span id="land-editor-pf-count" class="land-editor-pf-count hidden"></span>
-            </div>
-          </div>
-
-          <div class="form-section">
             <div class="form-section-title">Details</div>
             <div class="form-group">
               <label class="form-label">Status</label>
@@ -475,15 +428,70 @@
               </select>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- ══ Tab: Land Artwork ══════════════════════════════════ -->
+      <div id="land-editor-tab-artwork" class="editor-tab-panel editor-layout hidden">
+        <aside class="ai-panel">
+          <div class="ai-panel-header char-art-panel-header">
+            <span class="ai-panel-title">🎨 Artwork Generator</span>
+            <span class="ai-panel-sub">Generate a headline hero image for this land using DALL-E 3</span>
+          </div>
+
+          <!-- Preview (shown after generation) -->
+          <div id="land-gen-preview-wrap" class="land-gen-preview-wrap hidden">
+            <img id="land-gen-preview-img" class="land-gen-preview-img" alt="Generated headline image" />
+            <div id="land-gen-prompt-peek" class="land-gen-prompt-peek hidden"></div>
+            <div class="land-gen-preview-actions">
+              <button class="btn-primary btn-sm" id="land-gen-accept-btn">✓ Use as Hero Image</button>
+              <button class="btn-secondary btn-sm" id="land-gen-regen-btn">↺ Regenerate</button>
+              <button class="btn-ghost btn-sm" id="land-gen-discard-btn">✕ Discard</button>
+            </div>
+          </div>
+
+          <button class="btn-image-generate" id="land-gen-image-btn">
+            <span class="btn-ai-icon">🎨</span> Generate Headline Image
+          </button>
+          <div id="land-gen-status" class="land-gen-status hidden"></div>
+          <div id="land-gen-openai-warning" class="ai-key-warning hidden">
+            ⚠️ OpenAI API key needed for image generation. <a href="#" id="land-gen-goto-settings">Add it in Settings →</a>
+          </div>
+        </aside>
+
+        <div class="editor-form">
           <div class="form-section">
             <div class="form-section-title">Images</div>
-            <div class="form-hint" style="margin-bottom:12px">The first image is used as the tile thumbnail. The AI panel image is also saved here on create.</div>
+            <div class="form-hint" style="margin-bottom:12px">The first image is used as the tile thumbnail. AI-generated hero images are added here when accepted.</div>
             <div id="land-editor-images-gallery" class="editor-images-gallery"></div>
-            <label class="btn-add-image" for="land-editor-image-upload">+ Add Image</label>
+            <label class="btn-add-image" for="land-editor-image-upload" style="margin-top:10px">+ Add Image</label>
             <input type="file" id="land-editor-image-upload" accept="image/*" multiple style="display:none" />
           </div>
         </div>
       </div>
+
+      <!-- ══ Tab: Land Products ═════════════════════════════════ -->
+      <div id="land-editor-tab-products" class="editor-tab-panel hidden">
+        <div class="products-tab-body">
+          <div class="form-section">
+            <div class="form-section-title">Land Products</div>
+            <div class="form-hint" style="margin-bottom:14px">Products permanently associated with this land. Selected SKUs are also used as visual reference for AI generation.</div>
+
+            <div id="land-editor-pf-empty" class="land-editor-pf-empty">
+              <span class="land-editor-pf-empty-icon">📦</span>
+              <span>No products selected yet</span>
+            </div>
+            <div id="land-editor-pf-scroll" class="land-pf-scroll-wrap hidden">
+              <div id="land-editor-pf-cards" class="land-pf-cards"></div>
+            </div>
+            <div class="land-editor-pf-actions">
+              <button class="btn-secondary" id="land-browse-products-btn">🛍 Browse Product Library</button>
+              <span id="land-editor-pf-count" class="land-editor-pf-count hidden"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- ─── SETTINGS VIEW ─────────────────────────────────────── -->

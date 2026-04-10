@@ -319,15 +319,30 @@ html, body {
   gap: 20px;
   align-items: start;
 }
+/* Prevent either column from blowing out the 50/50 split.
+   Without min-width:0, CSS Grid items default to min-width:auto which lets
+   wide content (e.g. product-family card row) override the 1fr allocation. */
+.editor-layout > * { min-width: 0; }
+
+/* AI panel: sticky so it stays visible while the form scrolls */
+.editor-layout > .ai-panel {
+  position: sticky;
+  top: 72px;                    /* clear the fixed app header (52px) + 20px breathing room */
+  max-height: calc(100vh - 92px);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
 
 /* ── AI Panel ────────────────────────────────────────────────── */
 .ai-panel {
   background: white; border: 1px solid var(--sand-mid);
-  border-radius: var(--radius-lg); overflow: hidden;
+  border-radius: var(--radius-lg);
+  /* overflow:hidden removed — sticky+scrollable is set on .editor-layout > .ai-panel */
 }
 .ai-panel-header {
   background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
   padding: 16px 18px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;  /* top corners match panel */
 }
 .ai-panel-title {
   display: block; font-size: 14px; font-weight: 600;
@@ -441,6 +456,7 @@ html, body {
 /* ── Character Form ──────────────────────────────────────────── */
 .editor-form {
   display: flex; flex-direction: column; gap: 16px;
+  min-width: 0;   /* belt-and-suspenders: prevent form from blowing out grid column */
 }
 
 .form-section {
@@ -853,7 +869,11 @@ html, body {
 }
 
 /* Horizontal scrolling card row */
-.land-pf-scroll-wrap { overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; }
+.land-pf-scroll-wrap {
+  overflow-x: auto; overflow-y: hidden; padding-bottom: 4px;
+  /* Contain the wide card row — prevents it from inflating the parent grid column */
+  max-width: 100%;
+}
 .land-pf-cards {
   display: flex; gap: 12px; width: max-content; min-width: 100%;
 }

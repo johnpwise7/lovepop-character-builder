@@ -1138,27 +1138,15 @@ function openDetailModal(id) {
 
 function renderDetailImages(char) {
   const imgEl = document.getElementById('detail-images');
+  if (!imgEl) return;
   if (char.images && char.images.length) {
-    imgEl.innerHTML = '';
-    char.images.forEach((src, idx) => {
-      const wrapper = document.createElement('div');
-      wrapper.style.cssText = 'position:relative;';
-      wrapper.innerHTML = `<img src="${esc(src)}" alt="${esc(char.name)}" style="cursor:default" />
-        <button style="position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;border:none;background:rgba(214,59,47,.8);color:#fff;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;padding:0" title="Remove image">✕</button>`;
-      wrapper.querySelector('button').addEventListener('click', async () => {
-        try {
-          const res = await fetch(`${API}/${char.id}/images/${idx}`, { method: 'DELETE' });
-          if (!res.ok) throw new Error('Remove failed');
-          const updated = await res.json();
-          characters = characters.map(c => c.id === updated.id ? updated : c);
-          renderDetailImages(updated);
-          renderCatalog();
-        } catch (err) { alert('Could not remove: ' + err.message); }
-      });
-      imgEl.appendChild(wrapper);
-    });
+    imgEl.innerHTML = char.images.map((src, idx) => `
+      <div class="char-detail-img-wrap ${idx === 0 ? 'char-detail-img-primary' : ''}">
+        <img src="${esc(src)}" alt="${esc(char.name)}" />
+        ${idx === 0 ? '<span class="char-detail-img-badge">Primary</span>' : ''}
+      </div>`).join('');
   } else {
-    imgEl.innerHTML = `<div class="image-placeholder"><div class="image-placeholder-icon">🖼</div><div class="image-placeholder-text">No images yet</div></div>`;
+    imgEl.innerHTML = `<div class="char-detail-no-images"><span>🖼</span><span>No images — add them in the Character Artwork tab</span></div>`;
   }
 }
 

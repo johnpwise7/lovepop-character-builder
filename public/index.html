@@ -649,7 +649,23 @@
       </div>
       <div class="modal-body">
 
-        <!-- Character Products — full-width, above the 2-column grid -->
+        <!-- (1) Character Images — full-width hero strip, read-only -->
+        <div id="detail-images" class="char-detail-images"></div>
+
+        <!-- (2) Story fields — full width, no sidebar -->
+        <div class="detail-sections">
+          <div class="detail-section"><div class="detail-section-label">Backstory</div><div class="detail-section-content" id="detail-backstory">—</div></div>
+          <div class="detail-section"><div class="detail-section-label">Personality</div><div class="detail-section-content" id="detail-personality">—</div></div>
+          <div class="detail-section"><div class="detail-section-label">Key Passions</div><div class="detail-section-content" id="detail-key-passions">—</div></div>
+          <div class="detail-section"><div class="detail-section-label">What They Care About</div><div class="detail-section-content" id="detail-what-they-care-about">—</div></div>
+          <div class="detail-section"><div class="detail-section-label">Tone &amp; Voice</div><div class="detail-section-content" id="detail-tone-and-voice">—</div></div>
+          <div class="detail-row-2">
+            <div class="detail-section"><div class="detail-section-label">First Appeared</div><div class="detail-section-content" id="detail-first-appeared">—</div></div>
+            <div class="detail-section"><div class="detail-section-label">Status</div><div id="detail-status"></div></div>
+          </div>
+        </div>
+
+        <!-- (3) Character Products — full-width, at the bottom -->
         <div class="land-pf-section hidden" id="char-detail-products-section">
           <div class="land-pf-section-header">
             <div class="land-pf-section-title">
@@ -662,27 +678,6 @@
           </div>
         </div>
 
-        <div class="detail-grid">
-          <div class="detail-main">
-            <div class="detail-section"><div class="detail-section-label">Backstory</div><div class="detail-section-content" id="detail-backstory">—</div></div>
-            <div class="detail-section"><div class="detail-section-label">Personality</div><div class="detail-section-content" id="detail-personality">—</div></div>
-            <div class="detail-section"><div class="detail-section-label">Key Passions</div><div class="detail-section-content" id="detail-key-passions">—</div></div>
-            <div class="detail-section"><div class="detail-section-label">What They Care About</div><div class="detail-section-content" id="detail-what-they-care-about">—</div></div>
-            <div class="detail-section"><div class="detail-section-label">Tone &amp; Voice</div><div class="detail-section-content" id="detail-tone-and-voice">—</div></div>
-            <div class="detail-row-2">
-              <div class="detail-section"><div class="detail-section-label">First Appeared</div><div class="detail-section-content" id="detail-first-appeared">—</div></div>
-              <div class="detail-section"><div class="detail-section-label">Status</div><div id="detail-status"></div></div>
-            </div>
-          </div>
-          <div class="detail-sidebar">
-            <div class="detail-section">
-              <div class="detail-section-label">Images</div>
-              <div class="image-gallery" id="detail-images"></div>
-              <label class="btn-add-image" for="detail-image-upload" style="margin-top:10px">+ Add Image</label>
-              <input type="file" id="detail-image-upload" accept="image/*" multiple style="display:none" />
-            </div>
-          </div>
-        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-danger" id="detail-delete-btn">Delete</button>

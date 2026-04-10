@@ -649,7 +649,8 @@ html, body {
   width: 92vw; max-width: 1080px;
   height: 86vh; max-height: 860px;
   display: flex; flex-direction: column;
-  overflow: hidden;
+  overflow: hidden;        /* the grid child scrolls; the box itself must not */
+  max-height: unset;       /* override the 90vh from .modal-box so our height: 86vh wins */
 }
 .product-picker-filters {
   display: flex; gap: 10px;
@@ -658,7 +659,10 @@ html, body {
 .product-picker-filters .form-input { flex: 1; min-width: 0; }
 .product-picker-filters .form-select { width: 168px; flex-shrink: 0; }
 .product-picker-grid {
-  flex: 1; overflow-y: auto; overflow-x: hidden;
+  flex: 1;
+  min-height: 0;          /* critical — lets flex item shrink so overflow-y: auto actually fires */
+  overflow-y: auto;
+  overflow-x: hidden;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
   gap: 14px;
@@ -694,7 +698,10 @@ html, body {
   box-shadow: 0 0 0 3px var(--coral-border);
 }
 .product-tile-image {
-  aspect-ratio: 1; background: var(--sand); overflow: hidden;
+  /* explicit height — aspect-ratio collapses to 0 when the <img> hasn't loaded yet */
+  height: 168px;
+  background: var(--sand); overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
 }
 .product-tile-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .product-tile-body { padding: 8px 10px 10px; }

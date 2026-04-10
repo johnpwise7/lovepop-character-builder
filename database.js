@@ -108,7 +108,8 @@ const serializeChar = (row) => ({
 
 const serializeLand = (row) => ({
   ...row,
-  images: parseJSON(row.images),
+  images:       parseJSON(row.images),
+  product_skus: parseJSON(row.product_skus),
 });
 
 const CHAR_TEXT   = ['name','species','role','backstory','personality','key_passions','what_they_care_about','tone_and_voice','first_appeared','status'];

@@ -1457,18 +1457,6 @@ async function confirmProductSelection() {
   landSelectedProducts = products;
   landAiProductImageUrls = products.map(p => p.image_url);
   renderLandProductSelection();
-
-  // Pre-fill description with product context if field is empty
-  const descEl = document.getElementById('land-ai-description');
-  if (!descEl.value.trim()) {
-    const names = products.map(p => p.name).join('; ');
-    const occasions = [...new Set(products.map(p => p.occasion).filter(Boolean))].join(', ');
-    const themes    = [...new Set(products.map(p => p.theme).filter(Boolean))].join(', ');
-    const parts = [`Products: ${names}`];
-    if (occasions) parts.push(`Occasions: ${occasions}`);
-    if (themes)    parts.push(`Themes: ${themes}`);
-    descEl.value = parts.join('\n');
-  }
 }
 
 function renderLandProductSelection() {

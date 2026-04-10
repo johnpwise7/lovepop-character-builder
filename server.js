@@ -195,6 +195,47 @@ app.post('/api/ai/generate-land', uploadMem.single('image'), (req, res) =>
   }})
 );
 
+// ── Product Library Proxy ─────────────────────────────────────
+let _productCache = null;
+let _productCacheTs = 0;
+const PRODUCT_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+app.get('/api/products', async (req, res) => {
+  try {
+    const now = Date.now();
+    if (_productCache && (now - _productCacheTs) < PRODUCT_CACHE_TTL) {
+      return res.json(_productCache);
+    }
+    const upstream = await fetch('https://lovepop-merch-tool-production.up.railway.app/api/products');
+    if (!upstream.ok) throw new Error(`Upstream responded ${upstream.status}`);
+    _productCache = await upstream.json();
+    _productCacheTs = now;
+    res.json(_productCache);
+  } catch (err) {
+    console.error('Products proxy error:', err.message);
+    if (_productCache) return res.json(_productCache); // serve stale cache on upstream error
+    res.status(502).json({ error: 'Could not load product library: ' + err.message });
+  }
+});
+
+// Proxy Shopify CDN images so the browser avoids any CORS issues
+app.get('/api/image-proxy', async (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.startsWith('https://cdn.shopify.com/')) {
+    return res.status(400).json({ error: 'Only Shopify CDN URLs are allowed' });
+  }
+  try {
+    const upstream = await fetch(url);
+    if (!upstream.ok) throw new Error(`Image fetch failed: ${upstream.status}`);
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    res.set('Content-Type', upstream.headers.get('content-type') || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(buf);
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 // Diagnostic
 app.get('/api/debug/db-path', (req, res) => {
   const dbPath = process.env.DB_PATH || path.join(__dirname, 'characters.db');

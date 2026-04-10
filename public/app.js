@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindLands();
   bindLandEditor();
   bindLandAIPanel();
+  bindProductPicker();
   bindDetailModal();
   bindLandDetailModal();
   bindSettings();
@@ -1015,6 +1016,190 @@ async function handleSettingsSave() {
     alert('Save failed: ' + err.message);
     btn.disabled = false; btn.textContent = 'Save Settings';
   }
+}
+
+// ── Product Library ───────────────────────────────────────────
+let allProducts = [];
+let productsLoaded = false;
+let selectedProductSku = null;
+let productSearchTimer = null;
+const PRODUCT_GRID_LIMIT = 200;
+
+async function loadProducts() {
+  if (productsLoaded) return;
+  try {
+    const res = await fetch('/api/products');
+    if (!res.ok) throw new Error(`${res.status}`);
+    allProducts = await res.json();
+    productsLoaded = true;
+    populateProductFilters();
+  } catch (err) {
+    console.error('Load products error:', err);
+    throw err;
+  }
+}
+
+function populateProductFilters() {
+  const formats   = [...new Set(allProducts.map(p => p.format).filter(Boolean))].sort();
+  const occasions = [...new Set(allProducts.map(p => p.occasion).filter(Boolean))].sort();
+
+  const fmtSel = document.getElementById('product-format-filter');
+  formats.forEach(f => { const o = document.createElement('option'); o.value = o.textContent = f; fmtSel.appendChild(o); });
+
+  const occSel = document.getElementById('product-occasion-filter');
+  occasions.forEach(o => { const el = document.createElement('option'); el.value = el.textContent = o; occSel.appendChild(el); });
+}
+
+function getFilteredProducts() {
+  const query   = (document.getElementById('product-search').value || '').toLowerCase().trim();
+  const format  = document.getElementById('product-format-filter').value;
+  const occasion = document.getElementById('product-occasion-filter').value;
+
+  return allProducts.filter(p => {
+    if (format   && p.format   !== format)   return false;
+    if (occasion && p.occasion !== occasion) return false;
+    if (query) {
+      const hay = `${p.name} ${p.sku} ${p.occasion} ${p.theme} ${p.format}`.toLowerCase();
+      if (!hay.includes(query)) return false;
+    }
+    return true;
+  });
+}
+
+function renderProductGrid() {
+  const filtered = getFilteredProducts();
+  const shown = filtered.slice(0, PRODUCT_GRID_LIMIT);
+  const grid  = document.getElementById('product-picker-grid');
+
+  grid.innerHTML = '';
+
+  if (!shown.length) {
+    grid.innerHTML = '<div class="product-picker-empty">No products match your search.</div>';
+    document.getElementById('product-picker-status').textContent = '0 products';
+    return;
+  }
+
+  shown.forEach(product => {
+    const tile = document.createElement('div');
+    tile.className = 'product-tile' + (selectedProductSku === product.sku ? ' product-selected' : '');
+    tile.dataset.sku = product.sku;
+
+    const rev = product.revenue && product.revenue.t12m > 0
+      ? `$${(product.revenue.t12m / 1000).toFixed(0)}K T12M`
+      : '';
+
+    tile.innerHTML = `
+      <div class="product-tile-image">
+        <img src="${esc(product.image_url)}" alt="${esc(product.name)}" loading="lazy" />
+      </div>
+      <div class="product-tile-body">
+        <div class="product-tile-name">${esc(product.name)}</div>
+        ${rev ? `<div class="product-tile-rev">${rev}</div>` : ''}
+      </div>`;
+
+    tile.addEventListener('click', () => handleProductTileClick(product));
+    grid.appendChild(tile);
+  });
+
+  const statusEl = document.getElementById('product-picker-status');
+  if (filtered.length > PRODUCT_GRID_LIMIT) {
+    statusEl.textContent = `Showing ${PRODUCT_GRID_LIMIT} of ${filtered.length.toLocaleString()} — refine to see more`;
+  } else {
+    statusEl.textContent = `${filtered.length.toLocaleString()} product${filtered.length !== 1 ? 's' : ''}`;
+  }
+}
+
+function handleProductTileClick(product) {
+  selectedProductSku = product.sku;
+  document.querySelectorAll('#product-picker-grid .product-tile').forEach(t => {
+    t.classList.toggle('product-selected', t.dataset.sku === product.sku);
+  });
+  document.getElementById('product-picker-confirm-btn').disabled = false;
+  document.getElementById('product-picker-status').textContent = '1 product selected';
+}
+
+async function openProductPicker() {
+  // Reset selection state
+  selectedProductSku = null;
+  document.getElementById('product-picker-confirm-btn').disabled = true;
+  document.getElementById('product-picker-status').textContent = '';
+  document.getElementById('product-search').value = '';
+  document.getElementById('product-format-filter').value = '';
+  document.getElementById('product-occasion-filter').value = '';
+  document.getElementById('modal-product-picker').classList.remove('hidden');
+
+  if (!productsLoaded) {
+    document.getElementById('product-picker-grid').innerHTML =
+      '<div class="product-picker-loading">Loading product library…</div>';
+    try {
+      await loadProducts();
+    } catch {
+      document.getElementById('product-picker-grid').innerHTML =
+        '<div class="product-picker-empty">⚠️ Could not load products. Check your connection and try again.</div>';
+      return;
+    }
+  }
+  renderProductGrid();
+}
+
+function closeProductPicker() {
+  document.getElementById('modal-product-picker').classList.add('hidden');
+}
+
+async function confirmProductSelection() {
+  if (!selectedProductSku) return;
+  const product = allProducts.find(p => p.sku === selectedProductSku);
+  if (!product || !product.image_url) return;
+
+  closeProductPicker();
+
+  const btn = document.getElementById('land-browse-products-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Loading product image…';
+
+  try {
+    // Fetch through our proxy to avoid any CORS issues with the Shopify CDN
+    const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(product.image_url)}`;
+    const imgRes = await fetch(proxyUrl);
+    if (!imgRes.ok) throw new Error(`Image proxy returned ${imgRes.status}`);
+    const blob = await imgRes.blob();
+    const ext = (product.image_url.split('.').pop().split('?')[0] || 'jpg').toLowerCase();
+    const file = new File([blob], `${product.sku}.${ext}`, { type: blob.type || 'image/jpeg' });
+
+    setAIImage(file, 'land');
+
+    // Pre-fill description with product context if the field is empty
+    const descEl = document.getElementById('land-ai-description');
+    if (!descEl.value.trim()) {
+      const parts = [product.name];
+      if (product.occasion) parts.push(`Occasion: ${product.occasion}`);
+      if (product.format)   parts.push(`Format: ${product.format}`);
+      if (product.theme)    parts.push(`Theme: ${product.theme}`);
+      descEl.value = parts.join('\n');
+    }
+  } catch (err) {
+    alert('Could not load product image: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🛍 Browse Product Library';
+  }
+}
+
+function bindProductPicker() {
+  document.getElementById('land-browse-products-btn').addEventListener('click', openProductPicker);
+  document.getElementById('product-picker-close-btn').addEventListener('click', closeProductPicker);
+  document.getElementById('product-picker-cancel-btn').addEventListener('click', closeProductPicker);
+  document.getElementById('product-picker-confirm-btn').addEventListener('click', confirmProductSelection);
+  document.getElementById('modal-product-picker').addEventListener('click', e => {
+    if (e.target === e.currentTarget) closeProductPicker();
+  });
+
+  document.getElementById('product-search').addEventListener('input', () => {
+    clearTimeout(productSearchTimer);
+    productSearchTimer = setTimeout(renderProductGrid, 220);
+  });
+  document.getElementById('product-format-filter').addEventListener('change', renderProductGrid);
+  document.getElementById('product-occasion-filter').addEventListener('change', renderProductGrid);
 }
 
 // ── Excel Export ──────────────────────────────────────────────

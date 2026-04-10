@@ -260,6 +260,8 @@
             <img id="land-ai-image-preview" class="ai-image-preview hidden" alt="Land reference" />
             <button class="ai-image-clear hidden" id="land-ai-image-clear">✕ Remove</button>
           </div>
+          <div class="product-browse-divider"><span>or use a product image</span></div>
+          <button class="btn-browse-products" id="land-browse-products-btn">🛍 Browse Product Library</button>
           <div class="ai-desc-section">
             <label class="form-label">Land description / notes</label>
             <textarea id="land-ai-description" class="form-textarea" rows="5"
@@ -469,6 +471,34 @@
         <button class="btn-danger" id="land-detail-delete-btn">Delete</button>
         <button class="btn-secondary" id="land-detail-edit-btn">Edit Land</button>
         <button class="btn-secondary" id="land-detail-close-btn2">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PRODUCT PICKER MODAL ═════════════════════════════════ -->
+  <div id="modal-product-picker" class="modal-overlay hidden">
+    <div class="modal-box modal-box-products">
+      <div class="modal-header" style="flex-shrink:0">
+        <div>
+          <h2 class="modal-title">Browse Product Library</h2>
+          <div class="detail-meta">Select a product — its image will be used as the AI reference for this land</div>
+        </div>
+        <button class="modal-close" id="product-picker-close-btn">✕</button>
+      </div>
+      <div class="product-picker-filters">
+        <input type="text" id="product-search" class="form-input" placeholder="Search by name, SKU, or occasion…" />
+        <select id="product-format-filter" class="form-select"><option value="">All Formats</option></select>
+        <select id="product-occasion-filter" class="form-select"><option value="">All Occasions</option></select>
+      </div>
+      <div id="product-picker-grid" class="product-picker-grid">
+        <div class="product-picker-loading">Loading product library…</div>
+      </div>
+      <div class="product-picker-footer">
+        <span id="product-picker-status" class="product-picker-status"></span>
+        <div style="display:flex;gap:10px">
+          <button class="btn-secondary" id="product-picker-cancel-btn">Cancel</button>
+          <button class="btn-primary" id="product-picker-confirm-btn" disabled>Use This Product</button>
+        </div>
       </div>
     </div>
   </div>

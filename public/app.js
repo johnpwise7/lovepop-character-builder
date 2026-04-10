@@ -596,6 +596,10 @@ function openLandEditorView(mode, landId = null) {
     LAND_FIELD_META.forEach(f => { const el = document.getElementById(f.inputId); if (el) el.value = land[f.key] || ''; });
     document.getElementById('fl-status').value = land.status || 'active';
     renderLandEditorImages(land.images || []);
+    // Restore permanently-saved product SKUs (clearLandAIPanel already ran above)
+    if (land.product_skus && land.product_skus.length) {
+      restoreLandProductSelection(land.product_skus);
+    }
   } else {
     document.getElementById('land-editor-title').textContent = 'New Land';
     LAND_FIELD_META.forEach(f => { const el = document.getElementById(f.inputId); if (el) el.value = ''; });
@@ -698,6 +702,7 @@ async function handleLandEditorSave() {
   const data = {};
   LAND_FIELD_META.forEach(f => { const el = document.getElementById(f.inputId); if (el) data[f.key] = el.value.trim(); });
   data.status = document.getElementById('fl-status').value;
+  data.product_skus = [...selectedProductSkus];  // persist associated SKUs
 
   if (!data.name) {
     const el = document.getElementById('fl-name');
@@ -778,6 +783,27 @@ function clearLandProductSelection() {
   landAiProductImageUrls = [];
   selectedProductSkus = new Set();
   renderLandProductSelection();
+}
+
+function restoreLandProductSelection(skus) {
+  selectedProductSkus = new Set(skus);
+  if (productsLoaded) {
+    landSelectedProducts = skus.map(sku => allProducts.find(p => p.sku === sku) || { sku, name: sku, image_url: '' });
+    landAiProductImageUrls = landSelectedProducts.filter(p => p.image_url).map(p => p.image_url);
+    renderLandProductSelection();
+  } else {
+    // Show SKU badges immediately; upgrade to thumbnails once catalog loads
+    landSelectedProducts = skus.map(sku => ({ sku, name: sku, image_url: '' }));
+    landAiProductImageUrls = [];
+    renderLandProductSelection();
+    loadProducts().then(() => {
+      if (selectedProductSkus.size) {   // still relevant — editor is still open
+        landSelectedProducts = [...selectedProductSkus].map(sku => allProducts.find(p => p.sku === sku) || { sku, name: sku, image_url: '' });
+        landAiProductImageUrls = landSelectedProducts.filter(p => p.image_url).map(p => p.image_url);
+        renderLandProductSelection();
+      }
+    }).catch(() => {});
+  }
 }
 
 async function handleLandAIGenerate() {
@@ -922,7 +948,33 @@ function openLandDetailModal(id) {
   document.getElementById('land-detail-status').innerHTML = `<span class="status-badge status-${land.status}">${cap(land.status)}</span>`;
 
   renderLandDetailImages(land);
+  renderLandDetailProducts(land);
   document.getElementById('modal-land-detail').classList.remove('hidden');
+}
+
+function renderLandDetailProducts(land) {
+  const section = document.getElementById('land-detail-products-section');
+  const container = document.getElementById('land-detail-products');
+  const skus = land.product_skus || [];
+  if (!skus.length) { section.classList.add('hidden'); return; }
+  section.classList.remove('hidden');
+  container.innerHTML = '';
+  skus.forEach(sku => {
+    const product = productsLoaded ? allProducts.find(p => p.sku === sku) : null;
+    const item = document.createElement('div');
+    item.className = 'land-detail-product-item';
+    if (product && product.image_url) {
+      item.innerHTML = `
+        <img src="${esc(product.image_url)}" alt="${esc(product.name)}" class="land-detail-product-thumb" />
+        <div>
+          <div class="land-detail-product-name">${esc(product.name)}</div>
+          <div class="land-detail-product-sku">${esc(sku)}</div>
+        </div>`;
+    } else {
+      item.innerHTML = `<div class="land-detail-product-sku">${esc(sku)}</div>`;
+    }
+    container.appendChild(item);
+  });
 }
 
 function renderLandDetailImages(land) {
@@ -1227,12 +1279,20 @@ function renderLandProductSelection() {
   count.textContent = landSelectedProducts.length;
   thumbs.innerHTML = '';
   landSelectedProducts.forEach(p => {
-    const img = document.createElement('img');
-    img.src = p.image_url;
-    img.alt = p.name;
-    img.title = p.name;
-    img.className = 'land-product-selection-thumb';
-    thumbs.appendChild(img);
+    if (p.image_url) {
+      const img = document.createElement('img');
+      img.src = p.image_url;
+      img.alt = p.name || p.sku;
+      img.title = p.name || p.sku;
+      img.className = 'land-product-selection-thumb';
+      thumbs.appendChild(img);
+    } else {
+      const badge = document.createElement('div');
+      badge.className = 'land-product-sku-badge';
+      badge.textContent = p.sku;
+      badge.title = p.sku;
+      thumbs.appendChild(badge);
+    }
   });
   section.classList.remove('hidden');
 }
@@ -1309,6 +1369,7 @@ function exportLandsToExcel() {
       'Color Palette':     l.color_palette || '',
       'Themes & Content':  l.themes_and_content || '',
       'Status':            l.status || '',
+      'Associated SKUs':   (l.product_skus || []).join(', '),
       'Images':            (l.images || []).join(', '),
       'Created At':        fmtExportDate(l.created_at),
     }));
@@ -1316,7 +1377,7 @@ function exportLandsToExcel() {
     const ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = [
       { wch: 26 }, { wch: 60 }, { wch: 50 }, { wch: 40 },
-      { wch: 60 }, { wch: 10 }, { wch: 40 }, { wch: 14 },
+      { wch: 60 }, { wch: 10 }, { wch: 30 }, { wch: 40 }, { wch: 14 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Lands');

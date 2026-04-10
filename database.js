@@ -44,11 +44,18 @@ db.exec(`
     color_palette TEXT DEFAULT '',
     themes_and_content TEXT DEFAULT '',
     images TEXT DEFAULT '[]',
+    product_skus TEXT DEFAULT '[]',
     status TEXT DEFAULT 'active',
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   )
 `);
+
+// Migrate: add product_skus to existing lands tables that predate this column
+const existingLandCols = db.prepare("PRAGMA table_info(lands)").all().map(r => r.name);
+if (!existingLandCols.includes('product_skus')) {
+  db.exec(`ALTER TABLE lands ADD COLUMN product_skus TEXT DEFAULT '[]'`);
+}
 
 // ── Settings table ────────────────────────────────────────────
 db.exec(`
@@ -109,7 +116,7 @@ const CHAR_JSON   = ['images','products','quotes','art_styles'];
 const CHAR_ALL    = [...CHAR_TEXT, ...CHAR_JSON];
 
 const LAND_TEXT   = ['name','description','visual_style','color_palette','themes_and_content','status'];
-const LAND_JSON   = ['images'];
+const LAND_JSON   = ['images','product_skus'];
 const LAND_ALL    = [...LAND_TEXT, ...LAND_JSON];
 
 module.exports = {

@@ -365,6 +365,8 @@ function setAIImage(file, type) {
     showAIImagePreview(file, 'ai-image-preview', 'ai-image-placeholder', 'ai-image-clear');
   } else {
     landAiImageFile = file;
+    // A directly uploaded file replaces any product selection
+    clearLandProductSelection();
     showAIImagePreview(file, 'land-ai-image-preview', 'land-ai-image-placeholder', 'land-ai-image-clear');
   }
 }
@@ -418,7 +420,7 @@ async function handleAIGenerate() {
   });
 }
 
-async function runAIGenerate({ endpoint, imageFile, description, fieldMeta, generateBtnId, resultsId, cardsId, storeIn }) {
+async function runAIGenerate({ endpoint, imageFile, imageUrls, description, fieldMeta, generateBtnId, resultsId, cardsId, storeIn }) {
   const btn = document.getElementById(generateBtnId);
   const resultsEl = document.getElementById(resultsId);
   const cardsEl = document.getElementById(cardsId);
@@ -431,6 +433,7 @@ async function runAIGenerate({ endpoint, imageFile, description, fieldMeta, gene
   try {
     const fd = new FormData();
     if (imageFile) fd.append('image', imageFile);
+    if (imageUrls && imageUrls.length) fd.append('image_urls', JSON.stringify(imageUrls));
     if (description) fd.append('description', description);
 
     const res = await fetch(endpoint, { method: 'POST', body: fd });
@@ -756,21 +759,35 @@ function bindLandAIPanel() {
   document.getElementById('land-ai-generate-btn').addEventListener('click', handleLandAIGenerate);
   document.getElementById('land-ai-apply-all-btn').addEventListener('click', () => applyAllAI(LAND_FIELD_META, landAiGeneratedData));
   document.getElementById('land-ai-goto-settings').addEventListener('click', (e) => { e.preventDefault(); switchView('settings'); loadSettings(); });
+  document.getElementById('land-product-selection-clear').addEventListener('click', () => {
+    clearLandProductSelection();
+    document.getElementById('land-ai-description').value = '';
+  });
 }
 
 function clearLandAIPanel() {
   clearAIImage('land');
+  clearLandProductSelection();
   document.getElementById('land-ai-description').value = '';
   document.getElementById('land-ai-results').classList.add('hidden');
   document.getElementById('land-ai-result-cards').innerHTML = '';
 }
 
+function clearLandProductSelection() {
+  landSelectedProducts = [];
+  landAiProductImageUrls = [];
+  selectedProductSkus = new Set();
+  renderLandProductSelection();
+}
+
 async function handleLandAIGenerate() {
   const description = document.getElementById('land-ai-description').value.trim();
-  if (!landAiImageFile && !description) { document.getElementById('land-ai-description').focus(); return; }
+  const hasInput = landAiImageFile || landAiProductImageUrls.length || description;
+  if (!hasInput) { document.getElementById('land-ai-description').focus(); return; }
   await runAIGenerate({
     endpoint: '/api/ai/generate-land',
     imageFile: landAiImageFile,
+    imageUrls: landAiProductImageUrls,
     description,
     fieldMeta: LAND_FIELD_META,
     generateBtnId: 'land-ai-generate-btn',
@@ -1021,7 +1038,9 @@ async function handleSettingsSave() {
 // ── Product Library ───────────────────────────────────────────
 let allProducts = [];
 let productsLoaded = false;
-let selectedProductSku = null;
+let selectedProductSkus = new Set();   // multi-select
+let landSelectedProducts = [];         // full product objects for display
+let landAiProductImageUrls = [];       // image_url strings passed to AI
 let productSearchTimer = null;
 const PRODUCT_GRID_LIMIT = 200;
 
@@ -1081,7 +1100,7 @@ function renderProductGrid() {
 
   shown.forEach(product => {
     const tile = document.createElement('div');
-    tile.className = 'product-tile' + (selectedProductSku === product.sku ? ' product-selected' : '');
+    tile.className = 'product-tile' + (selectedProductSkus.has(product.sku) ? ' product-selected' : '');
     tile.dataset.sku = product.sku;
 
     const rev = product.revenue && product.revenue.t12m > 0
@@ -1102,30 +1121,49 @@ function renderProductGrid() {
   });
 
   const statusEl = document.getElementById('product-picker-status');
+  const selCount = selectedProductSkus.size;
   if (filtered.length > PRODUCT_GRID_LIMIT) {
-    statusEl.textContent = `Showing ${PRODUCT_GRID_LIMIT} of ${filtered.length.toLocaleString()} — refine to see more`;
+    statusEl.textContent = `Showing ${PRODUCT_GRID_LIMIT} of ${filtered.length.toLocaleString()} — refine to see more${selCount ? ` · ${selCount} selected` : ''}`;
   } else {
-    statusEl.textContent = `${filtered.length.toLocaleString()} product${filtered.length !== 1 ? 's' : ''}`;
+    statusEl.textContent = selCount
+      ? `${selCount} product${selCount !== 1 ? 's' : ''} selected`
+      : `${filtered.length.toLocaleString()} product${filtered.length !== 1 ? 's' : ''}`;
   }
+  updateConfirmBtn();
+}
+
+function updateConfirmBtn() {
+  const n = selectedProductSkus.size;
+  const btn = document.getElementById('product-picker-confirm-btn');
+  btn.disabled = n === 0;
+  btn.textContent = n > 0 ? `Use ${n} Product${n !== 1 ? 's' : ''}` : 'Use This Product';
 }
 
 function handleProductTileClick(product) {
-  selectedProductSku = product.sku;
-  document.querySelectorAll('#product-picker-grid .product-tile').forEach(t => {
-    t.classList.toggle('product-selected', t.dataset.sku === product.sku);
-  });
-  document.getElementById('product-picker-confirm-btn').disabled = false;
-  document.getElementById('product-picker-status').textContent = '1 product selected';
+  // Toggle selection
+  if (selectedProductSkus.has(product.sku)) {
+    selectedProductSkus.delete(product.sku);
+  } else {
+    selectedProductSkus.add(product.sku);
+  }
+  // Update tile appearance without re-rendering the whole grid
+  const tile = document.querySelector(`#product-picker-grid .product-tile[data-sku="${product.sku}"]`);
+  if (tile) tile.classList.toggle('product-selected', selectedProductSkus.has(product.sku));
+
+  const n = selectedProductSkus.size;
+  const statusEl = document.getElementById('product-picker-status');
+  statusEl.textContent = n > 0 ? `${n} product${n !== 1 ? 's' : ''} selected` : '';
+  updateConfirmBtn();
 }
 
 async function openProductPicker() {
-  // Reset selection state
-  selectedProductSku = null;
-  document.getElementById('product-picker-confirm-btn').disabled = true;
-  document.getElementById('product-picker-status').textContent = '';
+  // Preserve any existing selection so re-opening keeps context
+  document.getElementById('product-picker-status').textContent =
+    selectedProductSkus.size ? `${selectedProductSkus.size} product${selectedProductSkus.size !== 1 ? 's' : ''} selected` : '';
   document.getElementById('product-search').value = '';
   document.getElementById('product-format-filter').value = '';
   document.getElementById('product-occasion-filter').value = '';
+  updateConfirmBtn();
   document.getElementById('modal-product-picker').classList.remove('hidden');
 
   if (!productsLoaded) {
@@ -1147,42 +1185,56 @@ function closeProductPicker() {
 }
 
 async function confirmProductSelection() {
-  if (!selectedProductSku) return;
-  const product = allProducts.find(p => p.sku === selectedProductSku);
-  if (!product || !product.image_url) return;
+  if (!selectedProductSkus.size) return;
+
+  const products = [...selectedProductSkus]
+    .map(sku => allProducts.find(p => p.sku === sku))
+    .filter(p => p && p.image_url);
+  if (!products.length) return;
 
   closeProductPicker();
 
-  const btn = document.getElementById('land-browse-products-btn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Loading product image…';
+  // Products replace any manually uploaded/dropped image
+  clearAIImage('land');
 
-  try {
-    // Fetch through our proxy to avoid any CORS issues with the Shopify CDN
-    const proxyUrl = `/api/image-proxy?url=${encodeURIComponent(product.image_url)}`;
-    const imgRes = await fetch(proxyUrl);
-    if (!imgRes.ok) throw new Error(`Image proxy returned ${imgRes.status}`);
-    const blob = await imgRes.blob();
-    const ext = (product.image_url.split('.').pop().split('?')[0] || 'jpg').toLowerCase();
-    const file = new File([blob], `${product.sku}.${ext}`, { type: blob.type || 'image/jpeg' });
+  landSelectedProducts = products;
+  landAiProductImageUrls = products.map(p => p.image_url);
+  renderLandProductSelection();
 
-    setAIImage(file, 'land');
-
-    // Pre-fill description with product context if the field is empty
-    const descEl = document.getElementById('land-ai-description');
-    if (!descEl.value.trim()) {
-      const parts = [product.name];
-      if (product.occasion) parts.push(`Occasion: ${product.occasion}`);
-      if (product.format)   parts.push(`Format: ${product.format}`);
-      if (product.theme)    parts.push(`Theme: ${product.theme}`);
-      descEl.value = parts.join('\n');
-    }
-  } catch (err) {
-    alert('Could not load product image: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = '🛍 Browse Product Library';
+  // Pre-fill description with product context if field is empty
+  const descEl = document.getElementById('land-ai-description');
+  if (!descEl.value.trim()) {
+    const names = products.map(p => p.name).join('; ');
+    const occasions = [...new Set(products.map(p => p.occasion).filter(Boolean))].join(', ');
+    const themes    = [...new Set(products.map(p => p.theme).filter(Boolean))].join(', ');
+    const parts = [`Products: ${names}`];
+    if (occasions) parts.push(`Occasions: ${occasions}`);
+    if (themes)    parts.push(`Themes: ${themes}`);
+    descEl.value = parts.join('\n');
   }
+}
+
+function renderLandProductSelection() {
+  const section = document.getElementById('land-product-selection');
+  const thumbs  = document.getElementById('land-product-selection-thumbs');
+  const count   = document.getElementById('land-product-selection-count');
+
+  if (!landSelectedProducts.length) {
+    section.classList.add('hidden');
+    return;
+  }
+
+  count.textContent = landSelectedProducts.length;
+  thumbs.innerHTML = '';
+  landSelectedProducts.forEach(p => {
+    const img = document.createElement('img');
+    img.src = p.image_url;
+    img.alt = p.name;
+    img.title = p.name;
+    img.className = 'land-product-selection-thumb';
+    thumbs.appendChild(img);
+  });
+  section.classList.remove('hidden');
 }
 
 function bindProductPicker() {

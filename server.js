@@ -134,12 +134,31 @@ async function runAI({ req, res, fieldLabels, instructionPrefix }) {
   }).join(',\n');
 
   const userContent = [];
+
+  // Single uploaded file (drag-drop or file picker)
   if (req.file) {
     userContent.push({ type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: req.file.buffer.toString('base64') } });
   }
+
+  // Multiple product image URLs from the product picker (up to 5)
+  if (req.body.image_urls) {
+    try {
+      const urls = JSON.parse(req.body.image_urls);
+      for (const url of urls.slice(0, 5)) {
+        if (!url.startsWith('https://cdn.shopify.com/')) continue;
+        const imgResp = await fetch(url);
+        if (!imgResp.ok) continue;
+        const buf = Buffer.from(await imgResp.arrayBuffer());
+        const ct  = imgResp.headers.get('content-type') || 'image/jpeg';
+        userContent.push({ type: 'image', source: { type: 'base64', media_type: ct, data: buf.toString('base64') } });
+      }
+    } catch (e) { console.warn('image_urls parse/fetch error:', e.message); }
+  }
+
   userContent.push({
     type: 'text',
     text: [
+      userContent.length > 1 && !req.file ? `You are given ${userContent.length} product image${userContent.length > 1 ? 's' : ''} as visual reference. Synthesise a cohesive aesthetic from all of them.\n` : '',
       description ? `Description / notes:\n${description}\n` : '',
       `Generate a profile as a JSON object using EXACTLY these field names.`,
       `Every value must be a plain string — never an array or nested object.`,

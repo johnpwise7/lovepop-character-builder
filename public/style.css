@@ -647,26 +647,27 @@ html, body {
 /* ── Product Picker Modal ────────────────────────────────────── */
 .modal-box-products {
   width: 92vw; max-width: 1080px;
-  height: 86vh; max-height: 860px;
-  display: flex; flex-direction: column;
-  overflow: hidden;        /* the grid child scrolls; the box itself must not */
-  max-height: unset;       /* override the 90vh from .modal-box so our height: 86vh wins */
+  /* Fixed viewport height so the grid scrolls — not the whole box.
+     max-height here overrides .modal-box's 90vh via later cascade position. */
+  height: 86vh;
+  max-height: 860px;
+  overflow: hidden;       /* only the grid child scrolls */
 }
 .product-picker-filters {
   display: flex; gap: 10px;
-  padding: 0 24px 16px; flex-shrink: 0;
+  padding: 0 28px 14px; flex-shrink: 0;
 }
 .product-picker-filters .form-input { flex: 1; min-width: 0; }
-.product-picker-filters .form-select { width: 168px; flex-shrink: 0; }
+.product-picker-filters .form-select { width: 172px; flex-shrink: 0; }
 .product-picker-grid {
   flex: 1;
-  min-height: 0;          /* critical — lets flex item shrink so overflow-y: auto actually fires */
-  overflow-y: auto;
+  min-height: 0;          /* flex items are min-height:auto by default — this lets it shrink */
+  overflow-y: scroll;     /* always reserve scrollbar space; prevents layout thrash */
   overflow-x: hidden;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(188px, 1fr));
-  gap: 14px;
-  padding: 4px 24px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 2px 28px 16px;
   align-content: start;
 }
 .product-picker-loading {
@@ -679,12 +680,13 @@ html, body {
 }
 .product-picker-footer {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 24px 0;
+  padding: 14px 28px 22px;
   border-top: 1px solid var(--sand); flex-shrink: 0;
 }
 .product-picker-status { font-size: 13px; color: var(--text-muted); }
 
 .product-tile {
+  position: relative;
   border: 1.5px solid var(--sand-mid);
   border-radius: var(--radius-md);
   background: var(--white);
@@ -697,11 +699,20 @@ html, body {
   border-color: var(--coral);
   box-shadow: 0 0 0 3px var(--coral-border);
 }
-.product-tile-image {
-  /* explicit height — aspect-ratio collapses to 0 when the <img> hasn't loaded yet */
-  height: 168px;
-  background: var(--sand); overflow: hidden; flex-shrink: 0;
+/* Checkmark badge on selected tiles */
+.product-tile.product-selected::after {
+  content: '✓';
+  position: absolute; top: 7px; right: 7px;
+  width: 22px; height: 22px;
+  background: var(--coral); color: #fff;
+  border-radius: 50%; font-size: 12px; font-weight: 700;
   display: flex; align-items: center; justify-content: center;
+  z-index: 1;
+}
+.product-tile-image {
+  /* Explicit height — aspect-ratio:1 collapses to 0 before <img> loads */
+  height: 160px;
+  background: var(--sand); overflow: hidden; flex-shrink: 0;
 }
 .product-tile-image img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .product-tile-body { padding: 8px 10px 10px; }
@@ -710,6 +721,26 @@ html, body {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .product-tile-rev { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+/* Selected-products preview strip inside the Land AI panel */
+.land-product-selection {
+  background: var(--sand); border: 1px solid var(--sand-mid);
+  border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 4px;
+}
+.land-product-selection-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.land-product-selection-label { font-size: 12px; font-weight: 600; color: var(--navy); }
+.land-product-selection-clear {
+  font-size: 11px; color: var(--coral); background: none; border: none;
+  cursor: pointer; padding: 0; font-family: inherit;
+}
+.land-product-selection-clear:hover { text-decoration: underline; }
+.land-product-selection-thumbs { display: flex; gap: 6px; flex-wrap: wrap; }
+.land-product-selection-thumb {
+  width: 48px; height: 48px; border-radius: var(--radius-sm);
+  border: 1px solid var(--sand-mid); object-fit: cover; background: var(--cream);
+}
 
 /* Browse button + divider in land AI panel */
 .product-browse-divider {

@@ -132,6 +132,21 @@ db.exec(`
   )
 `);
 
+// ── Character Stories table ───────────────────────────────────
+db.exec(`
+  CREATE TABLE IF NOT EXISTS character_stories (
+    id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
+    character_id TEXT NOT NULL,
+    title TEXT DEFAULT '',
+    occasion TEXT DEFAULT '',
+    land_id TEXT DEFAULT '',
+    story_body TEXT DEFAULT '',
+    status TEXT DEFAULT 'draft',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )
+`);
+
 // ── Settings table ────────────────────────────────────────────
 db.exec(`
   CREATE TABLE IF NOT EXISTS settings (
@@ -381,6 +396,37 @@ module.exports = {
   },
 
   DEFAULTS,
+
+  // ── Character Stories ─────────────────────────────────────────
+  listStoriesForCharacter(characterId) {
+    return db.prepare('SELECT * FROM character_stories WHERE character_id = ? ORDER BY created_at DESC').all(String(characterId));
+  },
+  getStory(id) {
+    return db.prepare('SELECT * FROM character_stories WHERE id = ?').get(id) || null;
+  },
+  createStory(data) {
+    const { character_id, title = '', occasion = '', land_id = '', story_body = '', status = 'draft' } = data;
+    db.prepare(`
+      INSERT INTO character_stories (character_id, title, occasion, land_id, story_body, status)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(String(character_id), title, occasion, land_id, story_body, status);
+    return db.prepare('SELECT * FROM character_stories WHERE rowid = last_insert_rowid()').get();
+  },
+  updateStory(id, data) {
+    const allowed = ['title','occasion','land_id','story_body','status'];
+    const fields = [], values = [];
+    for (const key of allowed) {
+      if (data[key] !== undefined) { fields.push(`${key} = ?`); values.push(data[key]); }
+    }
+    if (!fields.length) return this.getStory(id);
+    fields.push(`updated_at = datetime('now')`);
+    values.push(id);
+    db.prepare(`UPDATE character_stories SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+    return this.getStory(id);
+  },
+  deleteStory(id) {
+    return db.prepare('DELETE FROM character_stories WHERE id = ?').run(id);
+  },
 
   // ── Asset Jobs ────────────────────────────────────────────────
   createAssetJob(data) {

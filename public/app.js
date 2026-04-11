@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bindCharArtGenerator();
   bindLandImageGenerator();
   bindAssetLibrary();
+  bindCharStories();
   loadAll();
   checkApiKeyStatus();
 });
@@ -289,7 +290,9 @@ function switchEditorTab(tab) {
   document.getElementById('editor-tab-story').classList.toggle('hidden', tab !== 'story');
   document.getElementById('editor-tab-artwork').classList.toggle('hidden', tab !== 'artwork');
   document.getElementById('editor-tab-products').classList.toggle('hidden', tab !== 'products');
+  document.getElementById('editor-tab-char-stories').classList.toggle('hidden', tab !== 'char-stories');
   if (tab === 'artwork') { renderApprovedGallery(); renderSourceGallery(); }
+  if (tab === 'char-stories') { loadCharStories(); }
 }
 
 // ── Land editor tab switching ─────────────────────────────────
@@ -3101,4 +3104,206 @@ function openAssetDrawer(asset) {
 
 function closeAssetDrawer() {
   document.getElementById('asset-detail-drawer').classList.add('hidden');
+}
+
+// ══ Character Stories ══════════════════════════════════════════
+
+let charStories = [];
+let activeStoryId = null;   // null = new, string = editing existing
+
+function bindCharStories() {
+  document.getElementById('cstory-new-btn').addEventListener('click', openNewStory);
+  document.getElementById('cstory-generate-btn').addEventListener('click', generateStory);
+  document.getElementById('cstory-draft-use-btn').addEventListener('click', useDraftStory);
+  document.getElementById('cstory-draft-discard-btn').addEventListener('click', () => {
+    document.getElementById('cstory-draft-panel').classList.add('hidden');
+  });
+  document.getElementById('cstory-save-btn').addEventListener('click', saveStory);
+  document.getElementById('cstory-cancel-btn').addEventListener('click', closeStoryEditor);
+  document.getElementById('cstory-delete-btn').addEventListener('click', deleteStory);
+}
+
+async function loadCharStories() {
+  if (!editorCharId) return;
+  try {
+    const res = await fetch(`/api/characters/${editorCharId}/stories`);
+    charStories = await res.json();
+    renderStoryList();
+    // populate land dropdowns
+    populateStoryLandDropdowns();
+  } catch (e) { console.error('loadCharStories error:', e); }
+}
+
+function populateStoryLandDropdowns() {
+  ['cstory-land-select', 'cstory-editor-land'].forEach(id => {
+    const sel = document.getElementById(id);
+    const current = sel.value;
+    // keep the first "no land" option, replace the rest
+    while (sel.options.length > 1) sel.remove(1);
+    lands.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.id;
+      opt.textContent = l.name;
+      sel.appendChild(opt);
+    });
+    sel.value = current;
+  });
+}
+
+function renderStoryList() {
+  const emptyEl = document.getElementById('cstory-empty');
+  const listEl  = document.getElementById('cstory-list');
+
+  if (!charStories.length) {
+    emptyEl.classList.remove('hidden');
+    listEl.classList.add('hidden');
+    return;
+  }
+  emptyEl.classList.add('hidden');
+  listEl.classList.remove('hidden');
+
+  listEl.innerHTML = '';
+  charStories.forEach(story => {
+    const card = document.createElement('div');
+    card.className = 'cstory-card' + (story.id === activeStoryId ? ' active' : '');
+    card.dataset.id = story.id;
+
+    const occasionBadge = story.occasion
+      ? `<span class="cstory-card-occasion">${esc(story.occasion)}</span>` : '';
+    const statusBadge = story.status === 'ready'
+      ? `<span class="cstory-card-occasion cstory-card-status-ready">Ready</span>` : '';
+    const snippet = (story.story_body || '').replace(/\n/g, ' ').slice(0, 120);
+
+    card.innerHTML = `
+      <div class="cstory-card-body">
+        <div class="cstory-card-title">${esc(story.title || 'Untitled Story')}</div>
+        <div class="cstory-card-meta">${occasionBadge}${statusBadge}</div>
+        <div class="cstory-card-snippet">${esc(snippet)}${snippet.length >= 120 ? '…' : ''}</div>
+      </div>`;
+
+    card.addEventListener('click', () => openStoryEditor(story));
+    listEl.appendChild(card);
+  });
+}
+
+function openNewStory() {
+  activeStoryId = null;
+  document.getElementById('cstory-editor-label').textContent = 'New Story';
+  document.getElementById('cstory-title-input').value = '';
+  document.getElementById('cstory-body-input').value = '';
+  document.getElementById('cstory-editor-occasion').value = '';
+  document.getElementById('cstory-editor-land').value = '';
+  document.getElementById('cstory-status-select').value = 'draft';
+  document.getElementById('cstory-delete-btn').style.display = 'none';
+  document.getElementById('cstory-editor').classList.remove('hidden');
+  document.getElementById('cstory-title-input').focus();
+  renderStoryList();
+}
+
+function openStoryEditor(story) {
+  activeStoryId = story.id;
+  document.getElementById('cstory-editor-label').textContent = 'Editing Story';
+  document.getElementById('cstory-title-input').value = story.title || '';
+  document.getElementById('cstory-body-input').value = story.story_body || '';
+  document.getElementById('cstory-editor-occasion').value = story.occasion || '';
+  document.getElementById('cstory-editor-land').value = story.land_id || '';
+  document.getElementById('cstory-status-select').value = story.status || 'draft';
+  document.getElementById('cstory-delete-btn').style.display = '';
+  document.getElementById('cstory-editor').classList.remove('hidden');
+  renderStoryList(); // refresh active highlight
+}
+
+function closeStoryEditor() {
+  activeStoryId = null;
+  document.getElementById('cstory-editor').classList.add('hidden');
+  renderStoryList();
+}
+
+async function saveStory() {
+  const title      = document.getElementById('cstory-title-input').value.trim();
+  const story_body = document.getElementById('cstory-body-input').value.trim();
+  const occasion   = document.getElementById('cstory-editor-occasion').value;
+  const land_id    = document.getElementById('cstory-editor-land').value;
+  const status     = document.getElementById('cstory-status-select').value;
+
+  if (!story_body) { document.getElementById('cstory-body-input').focus(); return; }
+
+  const btn = document.getElementById('cstory-save-btn');
+  btn.disabled = true; btn.textContent = 'Saving…';
+
+  try {
+    if (activeStoryId) {
+      await fetch(`/api/characters/${editorCharId}/stories/${activeStoryId}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, story_body, occasion, land_id, status }),
+      });
+    } else {
+      await fetch(`/api/characters/${editorCharId}/stories`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, story_body, occasion, land_id, status }),
+      });
+    }
+    await loadCharStories();
+    closeStoryEditor();
+  } catch (e) { console.error('saveStory error:', e); }
+  finally { btn.disabled = false; btn.textContent = 'Save Story'; }
+}
+
+async function deleteStory() {
+  if (!activeStoryId) return;
+  if (!confirm('Delete this story? This cannot be undone.')) return;
+  await fetch(`/api/characters/${editorCharId}/stories/${activeStoryId}`, { method: 'DELETE' });
+  await loadCharStories();
+  closeStoryEditor();
+}
+
+async function generateStory() {
+  if (!editorCharId) return;
+  const btn = document.getElementById('cstory-generate-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Generating…';
+
+  const occasion  = document.getElementById('cstory-occasion-select').value;
+  const land_id   = document.getElementById('cstory-land-select').value;
+  const direction = document.getElementById('cstory-direction').value.trim();
+
+  try {
+    const res = await fetch(`/api/characters/${editorCharId}/stories/generate`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ occasion, land_id, direction }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Generation failed');
+
+    document.getElementById('cstory-draft-title').textContent = data.title || '';
+    document.getElementById('cstory-draft-body').textContent = data.story_body || '';
+    document.getElementById('cstory-draft-panel').classList.remove('hidden');
+    // pre-fill the editor with the occasion/land used
+    document.getElementById('cstory-occasion-select').value = occasion;
+    document.getElementById('cstory-land-select').value = land_id;
+  } catch (e) {
+    alert('Story generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span class="btn-ai-icon">✨</span> Generate Story';
+  }
+}
+
+function useDraftStory() {
+  const title = document.getElementById('cstory-draft-title').textContent;
+  const body  = document.getElementById('cstory-draft-body').textContent;
+  const occasion = document.getElementById('cstory-occasion-select').value;
+  const land_id  = document.getElementById('cstory-land-select').value;
+
+  // Open new story editor pre-filled with the draft
+  activeStoryId = null;
+  document.getElementById('cstory-editor-label').textContent = 'New Story';
+  document.getElementById('cstory-title-input').value = title;
+  document.getElementById('cstory-body-input').value = body;
+  document.getElementById('cstory-editor-occasion').value = occasion;
+  document.getElementById('cstory-editor-land').value = land_id;
+  document.getElementById('cstory-status-select').value = 'draft';
+  document.getElementById('cstory-delete-btn').style.display = 'none';
+  document.getElementById('cstory-editor').classList.remove('hidden');
+  document.getElementById('cstory-draft-panel').classList.add('hidden');
 }

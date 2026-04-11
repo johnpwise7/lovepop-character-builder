@@ -156,24 +156,33 @@ async function runAI({ req, res, fieldLabels, instructionPrefix }) {
   }
 
   // Multiple product image URLs from the product picker (up to 5)
+  let productImageCount = 0;
   if (req.body.image_urls) {
     try {
       const urls = JSON.parse(req.body.image_urls);
+      console.log(`[AI generate] image_urls received: ${urls.length} — ${JSON.stringify(urls.slice(0, 3))}`);
       for (const url of urls.slice(0, 5)) {
-        if (!url.startsWith('https://cdn.shopify.com/')) continue;
-        const imgResp = await fetch(url);
-        if (!imgResp.ok) continue;
-        const buf = Buffer.from(await imgResp.arrayBuffer());
-        const ct  = imgResp.headers.get('content-type') || 'image/jpeg';
-        userContent.push({ type: 'image', source: { type: 'base64', media_type: ct, data: buf.toString('base64') } });
+        // Safety check: only allow https:// URLs (prevents SSRF to localhost/internal)
+        try { if (new URL(url).protocol !== 'https:') continue; } catch { continue; }
+        try {
+          const imgResp = await fetch(url);
+          if (!imgResp.ok) { console.warn(`[AI generate] image fetch failed (${imgResp.status}): ${url}`); continue; }
+          const buf = Buffer.from(await imgResp.arrayBuffer());
+          const ct  = imgResp.headers.get('content-type') || 'image/jpeg';
+          userContent.push({ type: 'image', source: { type: 'base64', media_type: ct, data: buf.toString('base64') } });
+          productImageCount++;
+          console.log(`[AI generate] loaded product image ${productImageCount}: ${url.slice(0, 80)}`);
+        } catch (fetchErr) { console.warn(`[AI generate] image fetch error for ${url}:`, fetchErr.message); }
       }
-    } catch (e) { console.warn('image_urls parse/fetch error:', e.message); }
+    } catch (e) { console.warn('[AI generate] image_urls parse error:', e.message); }
+  } else {
+    console.log('[AI generate] no image_urls in request body');
   }
 
   userContent.push({
     type: 'text',
     text: [
-      userContent.length > 1 && !req.file ? `You are given ${userContent.length} product image${userContent.length > 1 ? 's' : ''} as visual reference. Synthesise a cohesive aesthetic from all of them.\n` : '',
+      productImageCount > 0 ? `You are given ${productImageCount} Lovepop product image${productImageCount > 1 ? 's' : ''} as visual reference. Synthesise a cohesive aesthetic from ${productImageCount > 1 ? 'all of them' : 'it'}.\n` : '',
       description ? `Description / notes:\n${description}\n` : '',
       `Generate a profile as a JSON object using EXACTLY these field names.`,
       `Every value must be a plain string — never an array or nested object.`,

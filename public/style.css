@@ -1172,6 +1172,20 @@ html, body {
 .land-editor-pf-card { width: 130px; position: relative; }
 .land-editor-pf-card .land-pf-card-img-wrap { height: 110px; }
 
+/* Products tab: wider cards with more body room to show revenue metrics */
+#editor-tab-products .land-editor-pf-card,
+#land-editor-tab-products .land-editor-pf-card { width: 155px; }
+#editor-tab-products .land-editor-pf-card .land-pf-card-img-wrap,
+#land-editor-tab-products .land-editor-pf-card .land-pf-card-img-wrap { height: 120px; }
+#editor-tab-products .land-pf-card-name,
+#land-editor-tab-products .land-pf-card-name { font-size: 11px; -webkit-line-clamp: 2; }
+#editor-tab-products .pf-sales-rev,
+#land-editor-tab-products .pf-sales-rev {
+  font-size: 11px; font-weight: 700; color: var(--green); margin-top: 5px;
+}
+#editor-tab-products .pf-sales-metrics,
+#land-editor-tab-products .pf-sales-metrics { font-size: 10px; color: var(--gray); margin-top: 2px; }
+
 /* Remove × button on editor product cards (merch-tool style) */
 .pf-card-remove {
   position: absolute; top: 4px; right: 4px;

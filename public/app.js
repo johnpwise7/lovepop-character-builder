@@ -1039,7 +1039,7 @@ function renderCharProductSelection() {
       ? `<div class="land-pf-card-img-wrap"><img src="${esc(p.image_url)}" alt="${esc(p.name || p.sku)}" class="land-pf-card-img" loading="lazy" /></div>
          <div class="land-pf-card-body">${buildProductCardBody(p)}</div>`
       : `<div class="land-pf-card-img-wrap land-pf-card-img-empty"><span class="land-pf-card-img-icon">📦</span></div>
-         <div class="land-pf-card-body"><div class="land-pf-card-name">${esc(p.sku)}</div><div class="land-pf-card-sku">Loading…</div></div>`;
+         <div class="land-pf-card-body">${buildProductCardBody(p)}</div>`;
     const removeBtn = document.createElement('button');
     removeBtn.className = 'pf-card-remove';
     removeBtn.title = 'Remove';
@@ -2246,7 +2246,7 @@ function renderLandProductSelection() {
       ? `<div class="land-pf-card-img-wrap"><img src="${esc(p.image_url)}" alt="${esc(p.name || p.sku)}" class="land-pf-card-img" loading="lazy" /></div>
          <div class="land-pf-card-body">${buildProductCardBody(p)}</div>`
       : `<div class="land-pf-card-img-wrap land-pf-card-img-empty"><span class="land-pf-card-img-icon">📦</span></div>
-         <div class="land-pf-card-body"><div class="land-pf-card-name">${esc(p.sku)}</div><div class="land-pf-card-sku">Loading…</div></div>`;
+         <div class="land-pf-card-body">${buildProductCardBody(p)}</div>`;
     const removeBtn = document.createElement('button');
     removeBtn.className = 'pf-card-remove';
     removeBtn.title = 'Remove';

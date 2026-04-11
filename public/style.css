@@ -919,7 +919,7 @@ html, body {
   overflow-x: hidden;
   display: grid;
   grid-template-columns: repeat(auto-fill, 130px);
-  grid-auto-rows: auto;
+  grid-auto-rows: 185px;   /* 130px image + ~55px text — explicit height prevents grid×flex collapse */
   gap: 8px;
   padding: 2px 28px 16px;
   align-content: start;
@@ -968,7 +968,7 @@ html, body {
   z-index: 1;
 }
 .product-tile-image {
-  width: 100%; aspect-ratio: 1;
+  width: 100%; height: 130px; min-height: 130px;  /* explicit px — aspect-ratio collapses in grid×flex */
   background: var(--sand); overflow: hidden; flex-shrink: 0;
 }
 .product-tile-image img { width: 100%; height: 100%; object-fit: cover; display: block; }

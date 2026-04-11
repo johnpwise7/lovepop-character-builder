@@ -1032,6 +1032,17 @@ function renderCharProductSelection() {
          <div class="land-pf-card-body">${buildProductCardBody(p)}</div>`
       : `<div class="land-pf-card-img-wrap land-pf-card-img-empty"><span class="land-pf-card-img-icon">📦</span></div>
          <div class="land-pf-card-body"><div class="land-pf-card-name">${esc(p.sku)}</div><div class="land-pf-card-sku">Loading…</div></div>`;
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'pf-card-remove';
+    removeBtn.title = 'Remove';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      charSelectedProductSkus.delete(p.sku);
+      charSelectedProducts = charSelectedProducts.filter(x => x.sku !== p.sku);
+      renderCharProductSelection();
+    });
+    card.appendChild(removeBtn);
     cardsEl.appendChild(card);
   });
 }
@@ -2146,6 +2157,17 @@ function renderLandProductSelection() {
          <div class="land-pf-card-body">${buildProductCardBody(p)}</div>`
       : `<div class="land-pf-card-img-wrap land-pf-card-img-empty"><span class="land-pf-card-img-icon">📦</span></div>
          <div class="land-pf-card-body"><div class="land-pf-card-name">${esc(p.sku)}</div><div class="land-pf-card-sku">Loading…</div></div>`;
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'pf-card-remove';
+    removeBtn.title = 'Remove';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      selectedProductSkus.delete(p.sku);
+      landSelectedProducts = landSelectedProducts.filter(x => x.sku !== p.sku);
+      renderLandProductSelection();
+    });
+    card.appendChild(removeBtn);
     cardsEl.appendChild(card);
   });
 }

@@ -175,18 +175,18 @@ async function runClaudeSegmentation(imagePath, jobId, sourceFilename, metadata,
   const origW = origMeta.width;
   const origH = origMeta.height;
 
-  // Prepare a smaller JPEG version for sending to Claude.
-  // Anthropic's limit is 5MB base64; JPEG at 1568px stays well under 1MB.
-  // We tell Claude the resized dimensions and scale its coordinates back to
-  // original resolution when cropping.
-  const MAX_DIM = 1568;
+  // Prepare a small JPEG version for sending to Claude.
+  // We keep the payload tiny (target <300KB base64) to avoid Railway proxy limits
+  // and network timeouts. Claude only needs to identify bounding boxes — it
+  // doesn't need full resolution. We scale coordinates back after.
+  const MAX_DIM = 800;
   const scale = Math.min(1, MAX_DIM / Math.max(origW, origH));
   const claudeW = Math.round(origW * scale);
   const claudeH = Math.round(origH * scale);
 
   const claudeBuffer = await sharp(originalBuffer)
     .resize(claudeW, claudeH)
-    .jpeg({ quality: 90 })
+    .jpeg({ quality: 65 })
     .toBuffer();
 
   const base64 = claudeBuffer.toString('base64');
@@ -196,7 +196,7 @@ async function runClaudeSegmentation(imagePath, jobId, sourceFilename, metadata,
 
   console.log(`Image: ${origW}×${origH} → Claude payload: ${claudeW}×${claudeH} JPEG (${Math.round(base64.length / 1024)}KB base64)`);
 
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, timeout: 120_000 }); // 2 min timeout
 
   const prompt = `You are segmenting a Lovepop pop-up card illustration into its individual visual elements for a digital asset library.
 

@@ -147,7 +147,28 @@ app.get('/api/debug/anthropic-test', async (req, res) => {
     return res.json(result);
   }
 
-  // Step 2: minimal text-only Anthropic SDK call
+  // Step 2: raw fetch directly to Anthropic REST API (no SDK)
+  try {
+    const rawResp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Say ok' }],
+      }),
+    });
+    const rawData = await rawResp.json();
+    result.steps.push({ step: 'raw fetch text call', ok: rawResp.ok, status: rawResp.status, reply: rawData?.content?.[0]?.text, error: rawData?.error?.message });
+  } catch (e) {
+    result.steps.push({ step: 'raw fetch text call', ok: false, error: `${e.constructor?.name}: ${e.message}` });
+  }
+
+  // Step 3: minimal text-only Anthropic SDK call
   try {
     const client = new Anthropic({ apiKey });
     const resp = await client.messages.create({

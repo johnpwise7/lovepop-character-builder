@@ -2669,7 +2669,25 @@ async function handleAssetSegmentation() {
             clearInterval(pollInterval);
             const segCount = job.segment_count || 0;
             const viewQueueBtn = document.getElementById('asset-view-queue-btn');
-            if (viewQueueBtn) viewQueueBtn.textContent = `${segCount} segments ready for review →`;
+            if (job.status === 'failed' || segCount === 0) {
+              const errMsg = job.error_message || 'No segments found.';
+              if (viewQueueBtn) {
+                viewQueueBtn.textContent = `⚠️ View Queue (${segCount} segments)`;
+                viewQueueBtn.style.borderColor = 'var(--red)';
+                viewQueueBtn.style.color = 'var(--red)';
+              }
+              // Show error in progress panel
+              const progressTitle = document.querySelector('.asset-progress-title');
+              if (progressTitle) {
+                progressTitle.innerHTML = `<span style="color:var(--red)">⚠️ Segmentation issue</span>`;
+              }
+              const progressList = document.getElementById('asset-progress-list');
+              if (progressList) {
+                progressList.innerHTML = `<div style="font-size:12px;color:var(--red);background:#fff0f0;padding:10px 12px;border-radius:6px;line-height:1.5">${esc(errMsg)}</div>`;
+              }
+            } else {
+              if (viewQueueBtn) viewQueueBtn.textContent = `${segCount} segments ready for review →`;
+            }
           }
           dots++;
         } catch {}
@@ -2713,15 +2731,17 @@ function renderAssetQueue() {
     const row = document.createElement('div');
     row.className = 'asset-queue-row';
     const baseStatus = job.status?.split(':')[0] || 'queued';
+    const hasError = job.error_message && (baseStatus === 'failed' || job.segment_count === 0);
     row.innerHTML = `
       <div class="asset-queue-source">
         ${files.map(f => esc(f.filename || f)).join(', ') || 'Unknown files'}
         <div class="asset-queue-source-sub">${new Date(job.created_at).toLocaleString()}</div>
+        ${hasError ? `<div style="font-size:11px;color:var(--red);margin-top:4px">⚠️ ${esc(job.error_message)}</div>` : ''}
       </div>
       ${skus.length ? `<div class="asset-queue-skus">${skus.slice(0,3).map(esc).join(', ')}${skus.length > 3 ? ` +${skus.length-3}` : ''}</div>` : ''}
       <div class="asset-queue-seg-count">${job.segment_count || 0} segments</div>
       <span class="asset-queue-status status-${baseStatus}">${baseStatus}</span>
-      ${baseStatus === 'complete' ? `<button class="btn-secondary" data-job-id="${esc(job.id)}" style="font-size:11px;padding:5px 12px;white-space:nowrap">Review →</button>` : ''}`;
+      ${baseStatus === 'complete' && job.segment_count > 0 ? `<button class="btn-secondary" data-job-id="${esc(job.id)}" style="font-size:11px;padding:5px 12px;white-space:nowrap">Review →</button>` : ''}`;
     const reviewBtn = row.querySelector('[data-job-id]');
     reviewBtn?.addEventListener('click', () => openSRM(job.id));
     list.appendChild(row);

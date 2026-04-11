@@ -89,20 +89,32 @@ async function runSegmentation(jobId, files, metadata) {
   };
 
   let totalSegments = 0;
+  const errors = [];
 
   for (const file of files) {
     try {
       db.updateAssetJob(jobId, { status: `processing:${file.originalname}` });
-
       const segments = await runSAM2(file.path, settings, jobId, file.originalname, metadata);
       totalSegments += segments.length;
     } catch (err) {
       console.error(`Failed to segment ${file.originalname}:`, err.message);
-      // Continue with other files even if one fails
+      errors.push(`${file.originalname}: ${err.message}`);
     }
   }
 
-  db.updateAssetJob(jobId, { status: 'complete', segment_count: totalSegments });
+  if (totalSegments === 0 && errors.length > 0) {
+    db.updateAssetJob(jobId, {
+      status: 'failed',
+      segment_count: 0,
+      error_message: errors.join(' | ')
+    });
+  } else {
+    db.updateAssetJob(jobId, {
+      status: 'complete',
+      segment_count: totalSegments,
+      error_message: errors.length ? `Partial errors: ${errors.join(' | ')}` : ''
+    });
+  }
 }
 
 async function runSAM2(imagePath, settings, jobId, sourceFilename, metadata) {
@@ -157,43 +169,54 @@ async function runClaudeSegmentation(imagePath, jobId, sourceFilename, metadata,
     throw new Error('No Anthropic API key configured. Add it in Settings to enable segmentation.');
   }
 
-  // Get image dimensions and base64
-  const imageBuffer = fs.readFileSync(imagePath);
-  const { width: imgW, height: imgH } = await sharp(imageBuffer).metadata();
+  // Get image dimensions — resize if very large to keep base64 payload reasonable
+  let imageBuffer = fs.readFileSync(imagePath);
+  let imgMeta = await sharp(imageBuffer).metadata();
+  let imgW = imgMeta.width;
+  let imgH = imgMeta.height;
+
+  // Resize to max 2000px on longest side for Claude (keeps payload under ~4MB)
+  if (imgW > 2000 || imgH > 2000) {
+    const scale = 2000 / Math.max(imgW, imgH);
+    imgW = Math.round(imgW * scale);
+    imgH = Math.round(imgH * scale);
+    imageBuffer = await sharp(imageBuffer).resize(imgW, imgH).toBuffer();
+  }
+
   const base64 = imageBuffer.toString('base64');
   const ext = path.extname(imagePath).toLowerCase();
-  const mediaType = ext === '.png' ? 'image/png' : 'image/jpeg';
-
-  const minPct = settings.minPct || 5;
-  const maxPct = settings.maxPct || 90;
+  const mediaType = (ext === '.png') ? 'image/png' : 'image/jpeg';
 
   const client = new Anthropic({ apiKey });
 
-  const prompt = `You are segmenting a Lovepop illustration into its distinct visual elements for an asset library.
+  const prompt = `You are segmenting a Lovepop pop-up card illustration into its individual visual elements for a digital asset library.
 
-Analyze this image and identify ALL clearly distinguishable visual elements (flowers, leaves, characters, objects, decorative accents, etc.). Each element should be a coherent, self-contained part of the illustration.
+The image is ${imgW}×${imgH} pixels.
 
-For each element, output its bounding box as pixel coordinates within the image (width: ${imgW}px, height: ${imgH}px).
+Identify EVERY distinct visual element — flowers, leaves, stems, characters, animals, objects, ribbons, banners, decorative accents, etc. Be thorough and find as many separable elements as possible. Err heavily on the side of MORE elements.
+
+For each element give its tight bounding box in pixels (x, y from top-left corner, w = width, h = height).
 
 Rules:
-- Only include elements that are between ${minPct}% and ${maxPct}% of the total image area
-- Be generous — err on the side of identifying more elements rather than fewer
-- Each element must be visually distinct and separable
-- Do not include the full image or background as a segment unless it's a distinct textured element
+- Include every element you can see, no matter how small (minimum bounding box 20×20px)
+- Do NOT include one box covering the entire image
+- Overlapping boxes are fine — elements often overlap
+- Give each element a short descriptive label (3–5 words, color + subject)
 
-Respond with ONLY a JSON array, no other text:
+Respond with ONLY a valid JSON array — no explanation, no markdown fences:
 [
-  { "label": "Pink peony bud", "type": "flower", "x": 120, "y": 80, "w": 210, "h": 195 },
-  { "label": "Green fern frond", "type": "leaf_stem", "x": 340, "y": 200, "w": 150, "h": 280 }
+  {"label":"Pink peony full bloom","type":"flower","x":120,"y":80,"w":210,"h":195},
+  {"label":"Green curved stem","type":"leaf_stem","x":180,"y":240,"w":40,"h":160}
 ]
 
-Types must be one of: flower, leaf_stem, accent, foliage, character, background, other`;
+Valid types: flower, leaf_stem, accent, foliage, character, animal, object, background, other`;
 
+  let rawText = '';
   let elements = [];
   try {
     const response = await client.messages.create({
       model: 'claude-opus-4-5',
-      max_tokens: 1500,
+      max_tokens: 4096,
       messages: [{
         role: 'user',
         content: [
@@ -203,18 +226,26 @@ Types must be one of: flower, leaf_stem, accent, foliage, character, background,
       }]
     });
 
-    const text = response.content[0]?.text?.trim() || '[]';
-    // Extract JSON array even if Claude wraps it in backticks
-    const jsonMatch = text.match(/\[[\s\S]*\]/);
-    elements = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+    rawText = response.content[0]?.text?.trim() || '';
+    console.log(`Claude segmentation raw response (first 500 chars): ${rawText.slice(0, 500)}`);
+
+    // Strip markdown fences if present, then extract JSON array
+    const cleaned = rawText.replace(/```json?/gi, '').replace(/```/g, '').trim();
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      elements = JSON.parse(jsonMatch[0]);
+    }
   } catch (err) {
-    console.error('Claude segmentation API error:', err.message);
+    console.error('Claude segmentation error:', err.message, '| raw:', rawText.slice(0, 300));
     throw new Error(`Claude segmentation failed: ${err.message}`);
   }
 
   if (!elements.length) {
-    throw new Error('Claude found no distinct elements in this image. Try an image with more clearly separated components.');
+    const preview = rawText.slice(0, 200);
+    throw new Error(`Claude returned no elements. Raw response: "${preview}"`);
   }
+
+  console.log(`Claude identified ${elements.length} elements in ${sourceFilename}`);
 
   // Crop each element using sharp, save as PNG
   const imgArea = imgW * imgH;

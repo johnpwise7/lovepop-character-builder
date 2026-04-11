@@ -3,6 +3,7 @@ const path = require('path');
 const multer = require('multer');
 const fs = require('fs');
 const Anthropic = require('@anthropic-ai/sdk');
+const sharp = require('sharp');
 const db = require('./database');
 const assetLibraryRouter = require('./routes/assetLibrary');
 
@@ -150,12 +151,18 @@ async function runAI({ req, res, fieldLabels, instructionPrefix }) {
 
   const userContent = [];
 
-  // Single uploaded file (drag-drop or file picker)
+  // Single uploaded file (drag-drop or file picker) — resize to keep payload small
   if (req.file) {
-    userContent.push({ type: 'image', source: { type: 'base64', media_type: req.file.mimetype, data: req.file.buffer.toString('base64') } });
+    const resizedFile = await sharp(req.file.buffer)
+      .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 70 })
+      .toBuffer();
+    userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: resizedFile.toString('base64') } });
   }
 
   // Multiple product image URLs from the product picker (up to 5)
+  // Resize each to ≤800px JPEG q70 before base64-encoding to keep the
+  // total Anthropic API payload well under the 5MB limit.
   let productImageCount = 0;
   if (req.body.image_urls) {
     try {
@@ -167,12 +174,17 @@ async function runAI({ req, res, fieldLabels, instructionPrefix }) {
         try {
           const imgResp = await fetch(url);
           if (!imgResp.ok) { console.warn(`[AI generate] image fetch failed (${imgResp.status}): ${url}`); continue; }
-          const buf = Buffer.from(await imgResp.arrayBuffer());
-          const ct  = imgResp.headers.get('content-type') || 'image/jpeg';
-          userContent.push({ type: 'image', source: { type: 'base64', media_type: ct, data: buf.toString('base64') } });
+          const rawBuf = Buffer.from(await imgResp.arrayBuffer());
+          // Resize to max 800px and convert to JPEG to keep payload small
+          const resized = await sharp(rawBuf)
+            .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
+            .jpeg({ quality: 70 })
+            .toBuffer();
+          const kb = Math.round(resized.length / 1024);
+          console.log(`[AI generate] loaded product image ${productImageCount + 1}: ${kb}KB — ${url.slice(0, 80)}`);
+          userContent.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: resized.toString('base64') } });
           productImageCount++;
-          console.log(`[AI generate] loaded product image ${productImageCount}: ${url.slice(0, 80)}`);
-        } catch (fetchErr) { console.warn(`[AI generate] image fetch error for ${url}:`, fetchErr.message); }
+        } catch (fetchErr) { console.warn(`[AI generate] image fetch/resize error for ${url}:`, fetchErr.message); }
       }
     } catch (e) { console.warn('[AI generate] image_urls parse error:', e.message); }
   } else {

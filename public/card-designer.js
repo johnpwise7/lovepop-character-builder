@@ -3067,6 +3067,27 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Generating…'; }
 
     const refineNote = qs('cb2-refine-input')?.value?.trim() || '';
+    const rounds = cb2Active?.rounds || [];
+    const roundNum = rounds.length + 1;
+
+    // Show skeleton placeholders (same shimmer pattern as CB1)
+    const emptyEl  = qs('cb2-concepts-empty');
+    const roundsEl = qs('cb2-concept-rounds');
+    if (emptyEl) emptyEl.classList.add('hidden');
+    let skeleton = null;
+    if (roundsEl) {
+      skeleton = document.createElement('div');
+      skeleton.className = 'cd-round cd-round-skeleton';
+      skeleton.innerHTML = `
+        <div class="cd-round-header"><span class="cd-round-label">Round ${roundNum}</span></div>
+        <div class="cd-round-grid">
+          ${Array.from({ length: cb2GenCount }, () =>
+            '<div class="cd-sk-card cd-sk-card-skeleton"><div class="cd-sk-card-img-placeholder"></div></div>'
+          ).join('')}
+        </div>`;
+      roundsEl.appendChild(skeleton);
+      skeleton.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
 
     try {
       const { round, design } = await api.post(`/api/card-designer/cb2/designs/${cb2Active.id}/generate-round`, {
@@ -3082,6 +3103,8 @@
       const roundEl = document.getElementById(`cb2-round-${round.id}`);
       if (roundEl) roundEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
+      skeleton?.remove();
+      if (emptyEl && !(cb2Active?.rounds || []).length) emptyEl.classList.remove('hidden');
       const msg = e?.error || e?.message || String(e);
       alert('Generation failed: ' + msg);
     } finally {

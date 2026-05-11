@@ -2353,6 +2353,44 @@
   flex-shrink: 0;
 }
 
+/* CB2 grid — uniform tile rows */
+#cb2-dash-grid {
+  grid-auto-rows: 240px;
+}
+#cb2-dash-grid .cd-card-tile {
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+#cb2-dash-grid .cd-tile-preview {
+  flex-shrink: 0;
+}
+#cb2-dash-grid .cd-tile-preview-img {
+  object-fit: cover;
+}
+#cb2-dash-grid .cd-tile-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+#cb2-dash-grid .cd-tile-name {
+  margin-bottom: 4px;
+}
+/* product title one-line clip */
+#cb2-dash-grid .cd-tile-sku {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: inherit;
+}
+
 /* ── CB2 zone optional / required badges ─────────────────── */
 .cb2-optional-badge {
   display: inline-block;

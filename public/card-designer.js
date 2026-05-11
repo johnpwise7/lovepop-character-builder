@@ -2838,7 +2838,7 @@
       </div>
       <div class="cd-tile-body">
         <div class="cd-tile-name">${d.name || 'Untitled Design'}</div>
-        ${d.product_title ? `<div class="cd-tile-sku" style="text-transform:none;letter-spacing:0;font-size:12px;color:var(--text-muted)">${d.product_title}</div>` : ''}
+        ${d.product_title ? `<div class="cd-tile-sku">${d.product_title}</div>` : ''}
         <div class="cd-tile-meta" style="margin-top:8px">
           <span class="cd-tile-rounds">${roundsText}</span>
           <span class="cd-tile-time">${cb2TimeAgo(d.updated_at || d.created_at)}</span>

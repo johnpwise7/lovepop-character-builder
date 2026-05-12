@@ -224,7 +224,8 @@ function renderTileView() {
   Array.from(grid.children).forEach(el => { if (el.id !== 'catalog-empty') el.remove(); });
   if (!characters.length) { empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-  characters.forEach(char => grid.appendChild(buildCharTile(char)));
+  const sorted = [...characters].sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1));
+  sorted.forEach(char => grid.appendChild(buildCharTile(char)));
 }
 
 function renderListView() {
@@ -250,7 +251,7 @@ function renderListView() {
 
 function buildCharTile(char) {
   const tile = document.createElement('div');
-  tile.className = 'character-tile';
+  tile.className = 'character-tile' + (char.status !== 'active' ? ' tile-inactive' : '');
   const imgHtml = char.images && char.images.length
     ? `<img src="${esc(char.images[0])}" alt="${esc(char.name)}" loading="lazy" />`
     : `<div class="tile-image-placeholder">✨</div>`;
@@ -761,7 +762,8 @@ function renderLandsTileView() {
   Array.from(grid.children).forEach(el => { if (el.id !== 'lands-empty') el.remove(); });
   if (!lands.length) { empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-  lands.forEach(land => grid.appendChild(buildLandTile(land)));
+  const sorted = [...lands].sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1));
+  sorted.forEach(land => grid.appendChild(buildLandTile(land)));
 }
 
 function renderLandsListView() {
@@ -786,7 +788,7 @@ function renderLandsListView() {
 
 function buildLandTile(land) {
   const tile = document.createElement('div');
-  tile.className = 'character-tile land-tile';
+  tile.className = 'character-tile land-tile' + (land.status !== 'active' ? ' tile-inactive' : '');
 
   // Hero image area — matches character tile structure
   const imgHtml = (land.images && land.images.length)
@@ -2843,7 +2845,8 @@ function renderArtStylesTileView() {
   Array.from(grid.children).forEach(el => { if (el.id !== 'art-styles-empty') el.remove(); });
   if (!filtered.length) { empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
-  filtered.forEach(as => grid.appendChild(buildArtStyleTile(as)));
+  const sorted = [...filtered].sort((a, b) => (a.status === 'active' ? 0 : 1) - (b.status === 'active' ? 0 : 1));
+  sorted.forEach(as => grid.appendChild(buildArtStyleTile(as)));
 }
 
 function renderArtStylesListView() {
@@ -2866,7 +2869,7 @@ function renderArtStylesListView() {
 
 function buildArtStyleTile(as) {
   const tile = document.createElement('div');
-  tile.className = 'character-tile land-tile';
+  tile.className = 'character-tile land-tile' + (as.status !== 'active' ? ' tile-inactive' : '');
 
   const imgHtml = (as.images && as.images.length)
     ? `<img src="${esc(as.images[0])}" alt="${esc(as.name)}" loading="lazy" />`

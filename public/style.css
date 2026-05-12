@@ -202,6 +202,20 @@ html, body {
 }
 .character-tile:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
 
+/* Non-active tiles (draft / retired) — muted appearance */
+.character-tile.tile-inactive {
+  background: #F5F3F0;
+  border-color: #DDD8D0;
+  opacity: 0.72;
+}
+.character-tile.tile-inactive .tile-image img,
+.character-tile.tile-inactive .land-tile-image img {
+  filter: grayscale(25%);
+}
+.character-tile.tile-inactive:hover {
+  opacity: 0.9;
+}
+
 .tile-image {
   aspect-ratio: 1; background: var(--sand);
   display: flex; align-items: center; justify-content: center;

@@ -150,8 +150,24 @@
   padding: 24px 32px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-auto-rows: 300px;
   gap: 18px;
   align-content: start;
+}
+
+/* Tiles fill their fixed row height */
+.cd-card-tile {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.cd-tile-preview { flex-shrink: 0; }
+.cd-tile-body {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .cd-dash-empty {
@@ -2353,33 +2369,15 @@
   flex-shrink: 0;
 }
 
-/* CB2 grid — uniform tile rows */
+/* CB2 grid — slightly shorter rows than CB1 (no progress track) */
 #cb2-dash-grid {
   grid-auto-rows: 240px;
 }
-#cb2-dash-grid .cd-card-tile {
-  height: 100%;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-#cb2-dash-grid .cd-tile-preview {
-  flex-shrink: 0;
-}
+/* CB2 previews crop to fill (CB1 uses contain) */
 #cb2-dash-grid .cd-tile-preview-img {
   object-fit: cover;
 }
-#cb2-dash-grid .cd-tile-body {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-#cb2-dash-grid .cd-tile-name {
-  margin-bottom: 4px;
-}
-/* product title one-line clip */
+/* CB2 product title — plain text, single line */
 #cb2-dash-grid .cd-tile-sku {
   white-space: nowrap;
   overflow: hidden;

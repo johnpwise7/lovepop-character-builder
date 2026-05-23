@@ -106,18 +106,6 @@ router.get('/designs', (req, res) => {
       );
     }
 
-    // Inline scrub: strip selected_*_url fields whose files no longer exist on disk.
-    // Writes cleanup to DB so subsequent loads are already clean.
-    list = list.map(d => {
-      const staleFields = IMAGE_URL_FIELDS.filter(f => d[f] && !fileExistsForUrl(d[f]));
-      if (staleFields.length) {
-        const patch = Object.fromEntries(staleFields.map(f => [f, '']));
-        try { db.updateCardDesign(d.id, patch); } catch {}
-        return { ...d, ...patch };
-      }
-      return d;
-    });
-
     const charMap  = db.getCharacterNamesMap();
     const styleMap = db.getArtStyleNamesMap();
     const enriched = list.map(d => {
@@ -138,7 +126,21 @@ router.get('/designs', (req, res) => {
         rounds_count: (d.copy_rounds?.length || 0) + (d.sketch_rounds?.length || 0) + (d.cover_sketch_rounds?.length || 0) + (d.concept_rounds?.length || 0),
       };
     });
+
+    // Respond immediately — don't block on filesystem checks
     res.json(enriched);
+
+    // Background scrub: clean up stale selected_*_url fields after the response is sent.
+    // onerror handlers on tile images already handle missing files gracefully in the UI.
+    setImmediate(() => {
+      list.forEach(d => {
+        const staleFields = IMAGE_URL_FIELDS.filter(f => d[f] && !fileExistsForUrl(d[f]));
+        if (staleFields.length) {
+          const patch = Object.fromEntries(staleFields.map(f => [f, '']));
+          try { db.updateCardDesign(d.id, patch); } catch {}
+        }
+      });
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -946,15 +948,18 @@ router.get('/cb2/designs', (req, res) => {
       const lq = q.toLowerCase();
       list = list.filter(d => (d.name || '').toLowerCase().includes(lq) || (d.product_title || '').toLowerCase().includes(lq));
     }
-    // Inline scrub stale selected_concept_url
-    list = list.map(d => {
-      if (d.selected_concept_url && !cb2FileExists(d.selected_concept_url)) {
-        try { db.updateCb2Design(d.id, { selected_concept_url: '' }); } catch {}
-        return { ...d, selected_concept_url: '' };
-      }
-      return d;
-    });
+
+    // Respond immediately — don't block on filesystem checks
     res.json(list);
+
+    // Background scrub: clean up stale selected_concept_url after response is sent
+    setImmediate(() => {
+      list.forEach(d => {
+        if (d.selected_concept_url && !cb2FileExists(d.selected_concept_url)) {
+          try { db.updateCb2Design(d.id, { selected_concept_url: '' }); } catch {}
+        }
+      });
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
